@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Production{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="h3 mb-4">
+            <i class="fas fa-tachometer-alt"></i> Dashboard de Production
+        </h1>
+    </div>
+</div>
+
+<!-- Cartes de statistiques -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Opérateurs Présents
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="operateurs-present">
+                            {{ operateurs_present|length if operateurs_present else 14 }}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Taux d'Utilisation
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="taux-utilisation">
+                            {{ parametres.taux_utilisation if parametres and 'taux_utilisation' in parametres else '75' }}%
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Production du Jour
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="production-jour">
+                            {{ parametres.production_jour if parametres and 'production_jour' in parametres else '0' }} pièces
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                            Efficience Moyenne
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="efficience-moyenne">
+                            {% if parametres and 'efficience_moyenne' in parametres %}
+                                {{ "%.1f"|format(parametres.efficience_moyenne * 100) }}%
+                            {% else %}
+                                85.0%
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-percentage fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions rapides -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-tools"></i> Actions Rapides
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-primary btn-user btn-block" onclick="genererOrdonnancement()">
+                            <i class="fas fa-sync"></i> Générer Ordonnancement
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-warning btn-user btn-block" onclick="signalerAbsence()">
+                            <i class="fas fa-user-times"></i> Signaler Absence
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-info btn-user btn-block" onclick="voirPlanning()">
+                            <i class="fas fa-calendar"></i> Voir Planning
+                        </button>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <button class="btn btn-success btn-user btn-block" onclick="exporterPlanning()">
+                            <i class="fas fa-download"></i> Exporter Planning
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Planning du jour -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-calendar-day"></i> Planning du Jour
+                </h6>
+                <div class="text-muted small">
+                    {{ today|default('Aujourd\'hui', true) }}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm" id="planning-jour-table">
+                        <thead class="table-primary">
+                            <tr>
+                                <th rowspan="2" class="align-middle">Shift</th>
+                                {% for i in range(1, 15) %}
+                                    <th colspan="2" class="text-center">OP{{ "%02d"|format(i) }}</th>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                {% for i in range(1, 15) %}
+                                    <th class="text-center" style="font-size: 0.85rem;">Item</th>
+                                    <th class="text-center" style="font-size: 0.85rem;">Qté</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody id="planning-jour-tbody">
+                            {% for shift in ['Matin', 'Après-midi', 'Nuit'] %}
+                            <tr>
+                                <td class="font-weight-bold">{{ shift }}</td>
+                                {% for i in range(1, 15) %}
+                                    <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                    <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

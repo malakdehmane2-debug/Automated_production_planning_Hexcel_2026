@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Ajouter un PSF - {{ produit.reference }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}">{{ produit.reference }}</a></li>
+            <li class="breadcrumb-item active">Ajouter un PSF</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-cube"></i> Ajouter un Produit Semi-Fini à {{ produit.reference }}</h2>
+            <p class="text-muted">Créez un nouveau PSF avec ses matières premières en une seule fois</p>
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="row">
+        <div class="col-md-9">
+            <div class="card bg-white border shadow-sm">
+                <div class="card-body">
+                    <form method="POST" id="formPSF">
+                        <!-- Informations du PSF -->
+                        <div class="card mb-4 border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0"><i class="fas fa-cube"></i> Informations du Produit Semi-Fini</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="reference_psf" class="form-label">
+                                            <i class="fas fa-barcode"></i> Référence PSF *
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="reference_psf" 
+                                               name="reference_psf" 
+                                               placeholder="Ex: PSF-001"
+                                               required>
+                                    </div>
+                                    
+                                    <div class="col-md-5 mb-3">
+                                        <label for="designation_psf" class="form-label">
+                                            <i class="fas fa-tag"></i> Désignation *
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="designation_psf" 
+                                               name="designation_psf" 
+                                               placeholder="Ex: Panneau composite"
+                                               required>
+                                    </div>
+                                    
+                                    <div class="col-md-3 mb-3">
+                                        <label for="quantite_psf" class="form-label">
+                                            <i class="fas fa-hashtag"></i> Quantité *
+                                        </label>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="quantite_psf" 
+                                               name="quantite_psf" 
+                                               step="0.01" 
+                                               min="0.01" 
+                                               value="1.0" 
+                                               required>
+                                        <small class="text-muted">Nombre d'unités nécessaires</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Matières Premières -->
+                        <div class="card mb-4 border-success">
+                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-tools"></i> Matières Premières (MP)</h5>
+                                <button type="button" class="btn btn-light btn-sm" onclick="ajouterMP()">
+                                    <i class="fas fa-plus"></i> Ajouter une MP
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="matieres-premieres-container">
+                                    <!-- Les MP seront ajoutées ici dynamiquement -->
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i> Cliquez sur "Ajouter une MP" pour ajouter des matières premières à ce PSF
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save"></i> Créer le PSF avec ses MP
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aide -->
+        <div class="col-md-3">
+            <div class="card bg-light border-0">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-info-circle text-info"></i> Information</h5>
+                    <p class="card-text">
+                        <strong>Workflow simplifié :</strong><br>
+                        Créez un PSF et ajoutez toutes ses matières premières en une seule fois.
+                    </p>
+                    <hr>
+                    <p class="card-text">
+                        <strong>Exemple :</strong><br>
+                        PSF : "Panneau composite"<br>
+                        MP : Tissu carbone (5m)<br>
+                        MP : Résine époxy (2L)<br>
+                        MP : Film (3m²)
+                    </p>
+                    <hr>
+                    <div class="alert alert-success mb-0">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Avantage :</strong> Tout est créé en une seule étape !
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template pour une ligne de MP -->
+<template id="template-mp">
+    <div class="mp-row card mb-3 border-secondary">
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Référence MP *</label>
+                    <input type="text" 
+                           class="form-control" 
+                           name="mp_reference[]" 
+                           placeholder="Ex: MP-001"
+                           required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Désignation *</label>
+                    <input type="text" 
+                           class="form-control" 
+                           name="mp_designation[]" 
+                           placeholder="Ex: Tissu carbone"
+                           required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Quantité *</label>
+                    <input type="number" 
+                           class="form-control" 
+                           name="mp_quantite[]" 
+                           step="0.01" 
+                           min="0.01" 
+                           value="1.0"
+                           required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Unité *</label>
+                    <select class="form-select" name="mp_unite[]" required>
+                        <option value="pièce">pièce</option>
+                        <option value="m">m (mètre)</option>
+                        <option value="m²">m² (mètre carré)</option>
+                        <option value="m³">m³ (mètre cube)</option>
+                        <option value="kg">kg (kilogramme)</option>
+                        <option value="g">g (gramme)</option>
+                        <option value="L">L (litre)</option>
+                        <option value="mL">mL (millilitre)</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="supprimerMP(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+let compteurMP = 0;
+
+function ajouterMP() {
+    const container = document.getElementById('matieres-premieres-container');
+    const template = document.getElementById('template-mp');
+    const clone = template.content.cloneNode(true);
+    
+    // Supprimer le message d'info si c'est la première MP
+    const alertInfo = container.querySelector('.alert-info');
+    if (alertInfo) {
+        alertInfo.remove();
+    }
+    
+    container.appendChild(clone);
+    compteurMP++;
+}
+
+function supprimerMP(button) {
+    const mpRow = button.closest('.mp-row');
+    mpRow.remove();
+    compteurMP--;
+    
+    // Réafficher le message d'info si plus aucune MP
+    const container = document.getElementById('matieres-premieres-container');
+    if (compteurMP === 0) {
+        container.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle"></i> Cliquez sur "Ajouter une MP" pour ajouter des matières premières à ce PSF</div>';
+    }
+}
+
+// Ajouter une MP par défaut au chargement
+window.addEventListener('DOMContentLoaded', function() {
+    ajouterMP();
+});
+</script>
+
+<style>
+.mp-row {
+    transition: all 0.3s ease;
+}
+
+.mp-row:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
+
+{% endblock %}

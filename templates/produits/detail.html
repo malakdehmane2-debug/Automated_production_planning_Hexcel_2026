@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">{{ produit.reference }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-box"></i> {{ produit.reference }}</h2>
+            <span class="badge bg-{{ 'success' if produit.est_produit_fini else 'warning' }} fs-6">
+                {{ 'Produit Fini' if produit.est_produit_fini else 'Produit Semi-Fini' }}
+            </span>
+            <p class="text-muted mt-2">{{ produit.designation }}</p>
+        </div>
+        <div>
+            {% if produit.est_produit_fini %}
+            <a href="{{ url_for('nomenclature_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" class="btn btn-info">
+                <i class="fas fa-sitemap"></i> Nomenclature
+            </a>
+            {% endif %}
+            {% if produit.est_produit_semi_fini %}
+            <a href="{{ url_for('modifier_psf', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Modifier le PSF
+            </a>
+            {% else %}
+            <a href="{{ url_for('ajouter_item', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Ajouter un Item
+            </a>
+            {% endif %}
+            {% if produit.est_produit_fini %}
+            <a href="{{ url_for('ajouter_assemblage', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" class="btn btn-primary">
+                <i class="fas fa-cube"></i> Ajouter un PSF
+            </a>
+            {% endif %}
+            <form method="POST" action="{{ url_for('supprimer_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" class="d-inline"
+                  onsubmit="return confirm('Supprimer ce produit et tous ses items ?');">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Supprimer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Appartient à (si PSF) -->
+    {% if produit.est_produit_semi_fini and produits_finis_parents %}
+    <div class="card mb-4 border-info">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="fas fa-link"></i> Utilisé dans les Produits Finis</h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for parent in produits_finis_parents %}
+                <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=parent.produit.id) }}" 
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ parent.produit.reference }}</strong>
+                        <span class="badge bg-success ms-2">Produit Fini</span>
+                        <br>
+                        <small class="text-muted">{{ parent.produit.designation }}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">× {{ parent.quantite }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Items du produit -->
+    <div class="card mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list"></i> {% if produit.est_produit_semi_fini %}Matières Premières{% else %}Items{% endif %}</h5>
+            <span class="badge bg-primary">{{ produit.items.count() }} items</span>
+        </div>
+        <div class="card-body">
+            {% if produit.items.count() > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Image</th>
+                                <th>Référence</th>
+                                <th>Désignation</th>
+                                <th>Quantité</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in produit.items.all() %}
+                            <tr>
+                                <td>
+                                    <img src="{{ item.image_url }}" alt="{{ item.designation }}" 
+                                         class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                                </td>
+                                <td><strong>{{ item.reference }}</strong></td>
+                                <td>{{ item.designation }}</td>
+                                <td>{{ item.quantite }} {{ item.unite_mesure }}</td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('supprimer_item', item_id=item.id) }}" class="d-inline"
+                                          onsubmit="return confirm('Supprimer cet item ?');">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle"></i> Aucun {% if produit.est_produit_semi_fini %}matière première{% else %}item{% endif %} dans ce produit.
+                    {% if not produit.est_produit_semi_fini %}
+                    <a href="{{ url_for('ajouter_item', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" class="alert-link">
+                        Ajoutez-en un maintenant !
+                    </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Assemblages (si produit fini) -->
+    {% if produit.est_produit_fini and produit.assemblages.count() > 0 %}
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-puzzle-piece"></i> Assemblages</h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for assemblage in produit.assemblages.all() %}
+                {% if assemblage.produit_compose %}
+                <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=assemblage.produit_compose.id) }}" 
+                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ assemblage.produit_compose.reference }}</strong>
+                        <span class="badge bg-warning text-dark ms-2">Produit Semi-Fini</span>
+                        <br>
+                        <small class="text-muted">{{ assemblage.produit_compose.designation }}</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-primary rounded-pill me-2">× {{ assemblage.quantite }}</span>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Besoins totaux -->
+    {% if besoins %}
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="fas fa-calculator"></i> Besoins Totaux en Matières Premières</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th>Désignation</th>
+                            <th>Quantité Totale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for besoin in besoins %}
+                        <tr>
+                            <td><strong>{{ besoin.item.reference }}</strong></td>
+                            <td>{{ besoin.item.designation }}</td>
+                            <td><span class="badge bg-success">{{ besoin.quantite }} {{ besoin.unite }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-4">
+        <a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour au projet
+        </a>
+    </div>
+</div>
+{% endblock %}

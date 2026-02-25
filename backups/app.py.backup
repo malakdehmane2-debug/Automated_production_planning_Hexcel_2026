@@ -1,0 +1,188 @@
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
+from models import db, Projet, ProduitFini, Article, ObjectifMensuel
+from forms import ProjetForm, ProduitFiniForm, ArticleForm, ObjectifMensuelForm
+from config import Config
+from datetime import datetime
+from sqlalchemy.orm import joinedload, subqueryload
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    
+    # Initialiser la base de données
+    db.init_app(app)
+    
+    # Créer les tables
+    with app.app_context():
+        db.create_all()
+    
+    # Routes
+    @app.route('/')
+    def index():
+        return redirect(url_for('dashboard'))
+    
+    @app.route('/dashboard')
+    def dashboard():
+        projets = Projet.query.all()
+        parametres = {
+            "efficience_moyenne": 0.85,
+            "taux_utilisation": 75,
+            "production_jour": 245
+        }
+        today = datetime.now().strftime("%A %d %B %Y")
+        return render_template(
+            'dashboard.html',
+            projets=projets,
+            parametres=parametres,
+            today=today,
+            operateurs_present=list(range(1, 15))
+        )
+    
+    # Routes pour les projets
+    @app.route('/projets')
+    def liste_projets():
+        projets = Projet.query.all()
+        return render_template('projets/liste.html', projets=projets)
+    
+    @app.route('/projet/ajouter', methods=['GET', 'POST'])
+    def ajouter_projet():
+        form = ProjetForm()
+        if form.validate_on_submit():
+            projet = Projet(
+                nom=form.nom.data,
+                description=form.description.data
+            )
+            db.session.add(projet)
+            db.session.commit()
+            flash('Projet ajouté avec succès!', 'success')
+            return redirect(url_for('liste_projets'))
+        return render_template('projets/ajouter.html', form=form)
+    
+    @app.route('/projet/<int:projet_id>')
+    def detail_projet(projet_id):
+        projet = Projet.query.options(
+            joinedload(Projet.produits_finis)
+        ).get_or_404(projet_id)
+        return render_template('projets/detail.html', projet=projet)
+    
+    @app.route('/projet/supprimer/<int:projet_id>', methods=['POST'])
+    def supprimer_projet(projet_id):
+        projet = Projet.query.get_or_404(projet_id)
+        db.session.delete(projet)
+        db.session.commit()
+        flash('Projet supprimé avec succès!', 'success')
+        return redirect(url_for('liste_projets'))
+    
+    # Routes pour les produits finis
+    @app.route('/projet/<int:projet_id>/produit/ajouter', methods=['GET', 'POST'])
+    def ajouter_produit_fini(projet_id):
+        projet = Projet.query.get_or_404(projet_id)
+        form = ProduitFiniForm()
+        
+        if form.validate_on_submit():
+            produit = ProduitFini(
+                reference=form.reference.data,
+                designation=form.designation.data,
+                projet_id=projet_id
+            )
+            db.session.add(produit)
+            db.session.commit()
+            flash('Produit fini ajouté avec succès!', 'success')
+            return redirect(url_for('detail_projet', projet_id=projet_id))
+            
+        return render_template('produits_finis/ajouter.html', 
+                            form=form, 
+                            projet=projet)
+    
+    @app.route('/projet/<int:projet_id>/produit/<int:produit_id>')
+    def detail_produit_fini(projet_id, produit_id):
+        produit = ProduitFini.query.options(
+            joinedload(ProduitFini.articles)
+            .joinedload(Article.sous_articles)
+        ).filter_by(id=produit_id, projet_id=projet_id).first_or_404()
+        
+        besoins = produit.calculer_besoins()
+        return render_template('produits_finis/detail.html',
+                            projet=produit.projet,
+                            produit=produit,
+                            besoins=besoins)
+    
+    @app.route('/projet/<int:projet_id>/produit/<int:produit_id>/modifier', methods=['GET', 'POST'])
+    def modifier_produit_fini(projet_id, produit_id):
+        produit = ProduitFini.query.filter_by(id=produit_id, projet_id=projet_id).first_or_404()
+        form = ProduitFiniForm(obj=produit)
+        
+        if form.validate_on_submit():
+            produit.reference = form.reference.data
+            produit.designation = form.designation.data
+            db.session.commit()
+            flash('Produit fini modifié avec succès!', 'success')
+            return redirect(url_for('detail_produit_fini', projet_id=projet_id, produit_id=produit_id))
+        
+        return render_template('produits_finis/modifier.html', form=form, projet=produit.projet, produit=produit)
+    
+    # Routes pour les articles
+    @app.route('/produit/<int:produit_id>/article/ajouter', methods=['GET', 'POST'])
+    def ajouter_article(produit_id):
+        produit = ProduitFini.query.get_or_404(produit_id)
+        form = ArticleForm()
+        form.parent_id.choices = [(0, 'Aucun (article principal)')] + [
+            (a.id, f"{a.reference} - {a.designation}") 
+            for a in Article.query.filter_by(produit_fini_id=produit_id).all()
+        ]
+        
+        if form.validate_on_submit():
+            article = Article(
+                reference=form.reference.data,
+                designation=form.designation.data,
+                quantite_par_produit=form.quantite_par_produit.data,
+                est_semi_fini=form.est_semi_fini.data,
+                unite_mesure=form.unite_mesure.data,
+                produit_fini_id=produit_id,
+                parent_id=form.parent_id.data if form.parent_id.data != 0 else None,
+                quantite_necessaire=form.quantite_necessaire.data
+            )
+            db.session.add(article)
+            db.session.commit()
+            flash('Article ajouté avec succès!', 'success')
+            return redirect(url_for('detail_produit_fini', 
+                                 projet_id=produit.projet_id, 
+                                 produit_id=produit.id))
+        
+        return render_template('articles/ajouter.html', 
+                            form=form, 
+                            produit=produit)
+    
+    @app.route('/article/<int:article_id>/sous-articles')
+    def sous_articles(article_id):
+        article = Article.query.options(
+            joinedload(Article.sous_articles)
+        ).get_or_404(article_id)
+        return render_template('articles/sous_articles.html', 
+                           article=article,
+                           produit=article.produit_fini_associe)
+    
+    @app.route('/ordonnancement')
+    def ordonnancement():
+        # Récupérer tous les projets
+        projets = Projet.query.all()
+        return render_template('ordonnancement/index.html', projets=projets)
+    
+    @app.route('/api/generer_ordonnancement', methods=['POST'])
+    def generer_ordonnancement():
+        try:
+            return jsonify({
+                "status": "success",
+                "message": "Ordonnancement généré avec succès"
+            })
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": str(e)
+            }), 500
+
+    return app
+
+if __name__ == '__main__':
+    app = create_app()
+    app.run(debug=True)

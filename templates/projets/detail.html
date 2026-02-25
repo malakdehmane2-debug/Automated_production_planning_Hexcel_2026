@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item active">{{ projet.nom }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-project-diagram"></i> {{ projet.nom }}</h2>
+        </div>
+        <div>
+            <a href="{{ url_for('creer_produit', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Ajouter un Produit
+            </a>
+            <form method="POST" action="{{ url_for('supprimer_projet', zone_id=zone.id, projet_id=projet.id) }}" class="d-inline"
+                  onsubmit="return confirm('Supprimer ce projet et tous ses produits ?');">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Supprimer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4 bg-white border border-2">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Description</h5>
+        </div>
+        <div class="card-body bg-white text-dark">
+            {{ projet.description or "Aucune description" }}
+        </div>
+    </div>
+
+    <!-- Produits du projet -->
+    <div class="card mb-4 bg-white border border-2">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-boxes"></i> Produits</h5>
+            <span class="badge bg-primary">{{ projet.produits.count() }} produits</span>
+        </div>
+        <div class="card-body bg-white text-dark">
+            {% if projet.produits.count() > 0 %}
+                <div class="row">
+                    {% for produit in projet.produits.all() %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 bg-white border-{{ 'success' if produit.est_produit_fini else 'warning' }} border-2">
+                            <div class="card-header bg-{{ 'success' if produit.est_produit_fini else 'warning' }} text-white">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">{{ produit.reference }}</h6>
+                                    <span class="badge bg-light text-dark">
+                                        {{ 'PF' if produit.est_produit_fini else 'PSF' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-body bg-white text-dark">
+                                <p class="mb-2"><strong>{{ produit.designation }}</strong></p>
+                                <p class="text-muted mb-3">
+                                    <i class="fas fa-list"></i> {{ produit.items.count() }} items
+                                </p>
+                                <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                                   class="btn btn-primary btn-sm w-100">
+                                    <i class="fas fa-eye"></i> Voir le produit
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle"></i> Aucun produit dans ce projet.
+                    <a href="{{ url_for('creer_produit', zone_id=zone.id, projet_id=projet.id) }}" class="alert-link">
+                        Ajoutez-en un maintenant !
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{{ url_for('detail_zone', zone_id=zone.id) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour à la zone
+        </a>
+    </div>
+</div>
+{% endblock %}

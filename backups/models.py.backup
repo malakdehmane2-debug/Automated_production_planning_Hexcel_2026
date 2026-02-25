@@ -1,0 +1,132 @@
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
+# Initialisation de l'extension SQLAlchemy
+db = SQLAlchemy()
+
+class Projet(db.Model):
+    __tablename__ = 'projets'
+    id = db.Column(db.Integer, primary_key=True)
+    nom = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    produits_finis = db.relationship('ProduitFini', backref='projet', lazy='dynamic', cascade="all, delete-orphan")
+ 
+# Dans models.py - Classe ProduitFini
+class ProduitFini(db.Model):
+    __tablename__ = 'produits_finis'
+    id = db.Column(db.Integer, primary_key=True)
+    reference = db.Column(db.String(50), unique=True, nullable=False)
+    designation = db.Column(db.String(200), nullable=False)
+    projet_id = db.Column(db.Integer, db.ForeignKey('projets.id'), nullable=False)
+    # Relations
+    articles = db.relationship(
+        'Article', 
+        backref=db.backref('produit_fini_associe', lazy='joined'),
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+        foreign_keys='Article.produit_fini_id'
+    )
+    
+    # Relation avec le projet
+    
+    
+    def __repr__(self):
+        return f'<ProduitFini {self.reference} - {self.designation}>'
+    
+    def calculer_besoins(self):
+        """Calcule les besoins en matières premières pour ce produit fini."""
+        from collections import defaultdict
+        
+        # Dictionnaire pour stocker les besoins totaux par article
+        besoins = defaultdict(float)
+        # Dictionnaire pour stocker les informations des articles
+        articles_info = {}
+        
+        def traiter_article(article, quantite_parent=1.0):
+            """Fonction récursive pour traiter un article et ses sous-articles."""
+            # Si c'est un article de base (pas un sous-article)
+            if not article.parent_id:
+                quantite_totale = article.quantite_par_produit * quantite_parent
+            else:
+                quantite_totale = article.quantite_necessaire * quantite_parent
+            
+            # Mettre à jour le besoin total pour cet article
+            besoins[article.id] += quantite_totale
+            articles_info[article.id] = article
+            
+            # Traiter les sous-articles si c'est un article semi-fini
+            if article.est_semi_fini:
+                for sous_article in article.sous_articles:
+                    traiter_article(sous_article, quantite_totale)
+        
+        # Démarrer le traitement avec les articles de niveau 1
+        for article in self.articles.filter_by(parent_id=None).all():
+            traiter_article(article)
+        
+        # Préparer le résultat final
+        resultat = []
+        for article_id, quantite in besoins.items():
+            article = articles_info[article_id]
+            # Ne pas inclure les articles semi-finis dans le résultat final
+            if not article.est_semi_fini:
+                resultat.append({
+                    'article': article,
+                    'quantite': quantite,
+                    'unite': article.unite_mesure
+                })
+        
+        return sorted(resultat, key=lambda x: x['article'].reference)
+    
+    @property
+    def articles_principaux(self):
+        """Retourne uniquement les articles de premier niveau (sans parent)."""
+        return self.articles.filter_by(parent_id=None).all()
+    
+    def get_structure_articles(self):
+        """Retourne la structure hiérarchique des articles."""
+        def get_structure(article):
+            return {
+                'id': article.id,
+                'reference': article.reference,
+                'designation': article.designation,
+                'quantite': article.quantite_par_produit if not article.parent_id else article.quantite_necessaire,
+                'unite': article.unite_mesure,
+                'est_semi_fini': article.est_semi_fini,
+                'sous_articles': [get_structure(sa) for sa in article.sous_articles]
+            }
+        
+        return [get_structure(article) for article in self.articles_principaux]
+
+# Dans models.py
+class Article(db.Model):
+    __tablename__ = 'articles'
+    id = db.Column(db.Integer, primary_key=True)
+    reference = db.Column(db.String(50), unique=True, nullable=False)
+    designation = db.Column(db.String(200), nullable=False)
+    quantite_par_produit = db.Column(db.Float, nullable=False, default=1.0)
+    est_semi_fini = db.Column(db.Boolean, default=False)
+    unite_mesure = db.Column(db.String(20), default='pièce')
+    
+    # Relation avec le produit fini
+    produit_fini_id = db.Column(db.Integer, db.ForeignKey('produits_finis.id'), nullable=False)
+    
+    # Relation parent-enfant pour les articles semi-finis
+    parent_id = db.Column(db.Integer, db.ForeignKey('articles.id'))
+    sous_articles = db.relationship('Article', 
+                                  backref=db.backref('parent', remote_side=[id]),
+                                  lazy='dynamic')
+    
+    # Quantité nécessaire du sous-article pour fabriquer l'article parent
+    quantite_necessaire = db.Column(db.Float, default=1.0)
+class ObjectifMensuel(db.Model):
+    __tablename__ = 'objectifs_mensuels'
+    id = db.Column(db.Integer, primary_key=True)
+    article_id = db.Column(db.Integer, db.ForeignKey('articles.id'), nullable=False)
+    mois = db.Column(db.Date, nullable=False)  # Le premier jour du mois
+    quantite_objectif = db.Column(db.Integer, nullable=False)
+    quantite_realisee = db.Column(db.Integer, default=0)
+    
+    __table_args__ = (
+        db.UniqueConstraint('article_id', 'mois', name='_article_mois_uc'),
+    )

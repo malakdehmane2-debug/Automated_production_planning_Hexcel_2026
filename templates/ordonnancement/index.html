@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Ordonnancement de Production{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Ordonnancement de Production</h2>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Liste des Projets</h5>
+                </div>
+                <div class="card-body">
+                    {% if projets %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Projet</th>
+                                        <th>Produits Finis</th>
+                                        <th>Articles</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for projet in projets %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ projet.nom }}</strong>
+                                                {% if projet.description %}
+                                                    <p class="text-muted mb-0">{{ projet.description }}</p>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% set produits = projet.produits_finis.all() %}
+                                                {% if produits %}
+                                                    <ul class="list-unstyled mb-0">
+                                                        {% for pf in produits %}
+                                                            <li>{{ pf.designation }} ({{ pf.reference }})</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% else %}
+                                                    <span class="text-muted">Aucun produit fini</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% set articles = [] %}
+                                                {% for pf in produits %}
+                                                    {% for article in pf.articles.all() %}
+                                                        {% if article not in articles %}
+                                                            {% set _ = articles.append(article) %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endfor %}
+                                                
+                                                {% if articles %}
+                                                    <ul class="list-unstyled mb-0">
+                                                        {% for article in articles %}
+                                                            <li>{{ article.designation }} ({{ article.reference }})</li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                {% else %}
+                                                    <span class="text-muted">Aucun article</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('detail_projet', projet_id=projet.id) }}" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-eye"></i> Voir
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            Aucun projet n'a été trouvé. 
+                            <a href="{{ url_for('ajouter_projet') }}">Commencez par créer un projet</a>.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

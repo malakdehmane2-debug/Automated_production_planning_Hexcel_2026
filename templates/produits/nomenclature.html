@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Nomenclature - {{ produit.reference }}{% endblock %}
+
+<!-- Macro récursive pour afficher l'arbre - DOIT être définie AVANT son utilisation -->
+{% macro render_nomenclature_node(node) %}
+<div class="nomenclature-node" style="margin-left: {{ node.niveau * 40 }}px;">
+    <div class="card mb-3 {% if node.niveau == 0 %}border-success{% else %}border-warning{% endif %} shadow-sm">
+        <div class="card-body">
+            <!-- En-tête du nœud -->
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h5 class="mb-1">
+                        {% if node.niveau == 0 %}
+                            <i class="fas fa-box text-success"></i>
+                        {% else %}
+                            <i class="fas fa-cube text-warning"></i>
+                        {% endif %}
+                        <strong>{{ node.produit.reference }}</strong>
+                    </h5>
+                    <p class="text-muted mb-1">{{ node.produit.designation }}</p>
+                    {% if node.produit.est_produit_fini %}
+                        <span class="badge bg-success">Produit Fini</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Produit Semi-Fini</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Items/Matières premières du produit -->
+            {% if node.matieres_premieres %}
+            <div class="items-section mt-3">
+                <h6 class="text-primary mb-2">
+                    <i class="fas fa-tools"></i> Matières premières / Items
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Référence</th>
+                                <th>Désignation</th>
+                                <th>Quantité</th>
+                                <th>Unité</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in node.matieres_premieres %}
+                            <tr>
+                                <td><code>{{ item.reference }}</code></td>
+                                <td>{{ item.designation }}</td>
+                                <td><strong>{{ item.quantite }}</strong></td>
+                                <td>{{ item.unite_mesure }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Composants (produits semi-finis) -->
+            {% if node.composants %}
+            <div class="composants-section mt-3">
+                <h6 class="text-warning mb-2">
+                    <i class="fas fa-layer-group"></i> Composants (Produits Semi-Finis)
+                </h6>
+                {% for composant in node.composants %}
+                <div class="composant-info mb-2 p-2 bg-light rounded">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-arrow-right text-muted"></i>
+                            <strong>{{ composant.assemblage.produit_compose.reference }}</strong>
+                        </span>
+                        <span class="badge bg-info">
+                            Quantité: {{ composant.assemblage.quantite }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Afficher récursivement les sous-composants -->
+    {% if node.composants %}
+        {% for composant in node.composants %}
+            {{ render_nomenclature_node(composant.sous_arbre) }}
+        {% endfor %}
+    {% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}">{{ produit.reference }}</a></li>
+            <li class="breadcrumb-item active">Nomenclature</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-white border shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-2">
+                                <i class="fas fa-sitemap text-primary"></i>
+                                Nomenclature - {{ produit.reference }}
+                            </h2>
+                            <p class="text-muted mb-0">{{ produit.designation }}</p>
+                            <span class="badge bg-success mt-2">Produit Fini</span>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Retour
+                            </a>
+                            <a href="{{ url_for('ajouter_assemblage', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Ajouter un PSF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bilan Total -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-white border border-info shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-calculator"></i> Bilan Total - Besoins pour Produire {{ produit.reference }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- PSF Nécessaires -->
+                        <div class="col-md-6">
+                            <h6 class="text-warning mb-3">
+                                <i class="fas fa-cube"></i> Produits Semi-Finis Nécessaires
+                            </h6>
+                            {% if psf_besoins %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-warning">
+                                        <tr>
+                                            <th>Référence</th>
+                                            <th>Désignation</th>
+                                            <th>Quantité</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for psf in psf_besoins %}
+                                        <tr>
+                                            <td><strong>{{ psf.reference }}</strong></td>
+                                            <td>{{ psf.designation }}</td>
+                                            <td><span class="badge bg-warning text-dark">{{ psf.quantite }} ×</span></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">Aucun PSF nécessaire</p>
+                            {% endif %}
+                        </div>
+
+                        <!-- MP Totales -->
+                        <div class="col-md-6">
+                            <h6 class="text-success mb-3">
+                                <i class="fas fa-tools"></i> Matières Premières Totales
+                            </h6>
+                            {% if mp_totaux %}
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-success">
+                                        <tr>
+                                            <th>Référence</th>
+                                            <th>Désignation</th>
+                                            <th>Quantité Totale</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for mp in mp_totaux %}
+                                        <tr>
+                                            <td><code>{{ mp.reference }}</code></td>
+                                            <td>{{ mp.designation }}</td>
+                                            <td><strong class="text-success">{{ mp.quantite }} {{ mp.unite }}</strong></td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% else %}
+                            <p class="text-muted">Aucune MP nécessaire</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Résumé :</strong> 
+                        Pour produire <strong>1 unité</strong> de <strong>{{ produit.reference }}</strong>, vous avez besoin de :
+                        <ul class="mb-0 mt-2">
+                            {% if psf_besoins %}
+                            <li><strong>{{ psf_besoins|length }} PSF</strong> : 
+                                {% for psf in psf_besoins %}{{ psf.reference }} ({{ psf.quantite }}×){% if not loop.last %}, {% endif %}{% endfor %}
+                            </li>
+                            {% endif %}
+                            {% if mp_totaux %}
+                            <li><strong>{{ mp_totaux|length }} MP</strong> au total : 
+                                {% for mp in mp_totaux %}{{ mp.quantite }} {{ mp.unite }} de {{ mp.reference }}{% if not loop.last %}, {% endif %}{% endfor %}
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Arbre de nomenclature -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-white border shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-tree"></i> Arbre de Nomenclature Détaillé</h5>
+                </div>
+                <div class="card-body">
+                    <div class="nomenclature-tree">
+                        {{ render_nomenclature_node(nomenclature) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.nomenclature-tree {
+    position: relative;
+}
+
+.nomenclature-node {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.nomenclature-node:before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    width: 20px;
+    height: 2px;
+    background: #dee2e6;
+}
+
+.nomenclature-node:after {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: #dee2e6;
+}
+
+.nomenclature-node:first-child:after {
+    top: 50%;
+    height: 50%;
+}
+
+.nomenclature-node:last-child:after {
+    height: 50%;
+}
+
+.nomenclature-node[style*="margin-left: 0px"]:before,
+.nomenclature-node[style*="margin-left: 0px"]:after {
+    display: none;
+}
+
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}
+
+.items-section, .composants-section {
+    border-top: 2px solid #f8f9fa;
+    padding-top: 1rem;
+}
+</style>
+
+{% endblock %}

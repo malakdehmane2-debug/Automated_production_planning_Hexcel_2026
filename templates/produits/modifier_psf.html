@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Modifier PSF - {{ produit.reference }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}">{{ produit.reference }}</a></li>
+            <li class="breadcrumb-item active">Modifier</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-edit"></i> Modifier le PSF {{ produit.reference }}</h2>
+            <p class="text-muted">Modifiez les informations du produit semi-fini et ses matières premières</p>
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="row">
+        <div class="col-md-9">
+            <div class="card bg-white border shadow-sm">
+                <div class="card-body">
+                    <form method="POST" id="formModifierPSF">
+                        <!-- Informations du PSF -->
+                        <div class="card mb-4 border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0"><i class="fas fa-cube"></i> Informations du PSF</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="reference_psf" class="form-label">
+                                            <i class="fas fa-barcode"></i> Référence *
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="reference_psf" 
+                                               name="reference_psf" 
+                                               value="{{ produit.reference }}"
+                                               required>
+                                    </div>
+                                    
+                                    <div class="col-md-6 mb-3">
+                                        <label for="designation_psf" class="form-label">
+                                            <i class="fas fa-tag"></i> Désignation *
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="designation_psf" 
+                                               name="designation_psf" 
+                                               value="{{ produit.designation }}"
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Matières Premières Existantes -->
+                        <div class="card mb-4 border-success">
+                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="fas fa-tools"></i> Matières Premières</h5>
+                                <button type="button" class="btn btn-light btn-sm" onclick="ajouterMP()">
+                                    <i class="fas fa-plus"></i> Ajouter une MP
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <!-- MP Existantes -->
+                                {% if produit.items.count() > 0 %}
+                                <div class="mb-3">
+                                    <h6 class="text-muted">MP Existantes</h6>
+                                    {% for item in produit.items.all() %}
+                                    <div class="card mb-2 border-secondary">
+                                        <div class="card-body">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-3">
+                                                    <strong>{{ item.reference }}</strong>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    {{ item.designation }}
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <span class="badge bg-info">{{ item.quantite }} {{ item.unite_mesure }}</span>
+                                                </div>
+                                                <div class="col-md-3 text-end">
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" 
+                                                               type="checkbox" 
+                                                               name="mp_supprimer[]" 
+                                                               value="{{ item.id }}"
+                                                               id="supprimer_{{ item.id }}">
+                                                        <label class="form-check-label text-danger" for="supprimer_{{ item.id }}">
+                                                            <i class="fas fa-trash"></i> Supprimer
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <hr>
+                                {% endif %}
+                                
+                                <!-- Nouvelles MP -->
+                                <div id="matieres-premieres-container">
+                                    <h6 class="text-muted mb-3">Nouvelles MP à ajouter</h6>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-save"></i> Enregistrer les Modifications
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aide -->
+        <div class="col-md-3">
+            <div class="card bg-light border-0">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-info-circle text-info"></i> Information</h5>
+                    <p class="card-text">
+                        <strong>Modification du PSF :</strong><br>
+                        Vous pouvez modifier les informations du PSF et gérer ses matières premières.
+                    </p>
+                    <hr>
+                    <p class="card-text">
+                        <strong>Supprimer une MP :</strong><br>
+                        Cochez la case "Supprimer" à côté de la MP à retirer.
+                    </p>
+                    <hr>
+                    <p class="card-text">
+                        <strong>Ajouter une MP :</strong><br>
+                        Cliquez sur "Ajouter une MP" pour ajouter de nouvelles matières premières.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template pour une ligne de MP -->
+<template id="template-mp">
+    <div class="mp-row card mb-3 border-secondary">
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Référence MP *</label>
+                    <input type="text" 
+                           class="form-control" 
+                           name="mp_reference[]" 
+                           placeholder="Ex: MP-003"
+                           required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Désignation *</label>
+                    <input type="text" 
+                           class="form-control" 
+                           name="mp_designation[]" 
+                           placeholder="Ex: Aluminium"
+                           required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Quantité *</label>
+                    <input type="number" 
+                           class="form-control" 
+                           name="mp_quantite[]" 
+                           step="0.01" 
+                           min="0.01" 
+                           value="1.0"
+                           required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Unité *</label>
+                    <select class="form-select" name="mp_unite[]" required>
+                        <option value="pièce">pièce</option>
+                        <option value="m">m</option>
+                        <option value="m²">m²</option>
+                        <option value="m³">m³</option>
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="L">L</option>
+                        <option value="mL">mL</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-danger btn-sm w-100" onclick="supprimerMP(this)">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+let compteurMP = 0;
+
+function ajouterMP() {
+    const container = document.getElementById('matieres-premieres-container');
+    const template = document.getElementById('template-mp');
+    const clone = template.content.cloneNode(true);
+    
+    container.appendChild(clone);
+    compteurMP++;
+}
+
+function supprimerMP(button) {
+    const mpRow = button.closest('.mp-row');
+    mpRow.remove();
+    compteurMP--;
+}
+</script>
+
+<style>
+.mp-row {
+    transition: all 0.3s ease;
+}
+
+.mp-row:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
+
+{% endblock %}

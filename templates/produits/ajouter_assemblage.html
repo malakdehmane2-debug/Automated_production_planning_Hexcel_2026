@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Ajouter un Assemblage - {{ produit.reference }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}">{{ produit.reference }}</a></li>
+            <li class="breadcrumb-item active">Ajouter un Assemblage</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-puzzle-piece"></i> Ajouter un Composant à {{ produit.reference }}</h2>
+            <p class="text-muted">Sélectionnez un produit semi-fini et indiquez la quantité nécessaire</p>
+        </div>
+    </div>
+
+    <!-- Formulaire -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card bg-white border shadow-sm">
+                <div class="card-body">
+                    <form method="POST">
+                        <!-- Sélection du produit semi-fini -->
+                        <div class="mb-3">
+                            <label for="produit_compose_id" class="form-label">
+                                <i class="fas fa-cube"></i> Produit Semi-Fini *
+                            </label>
+                            <div class="input-group">
+                                <select class="form-select" id="produit_compose_id" name="produit_compose_id" required>
+                                    <option value="">-- Sélectionner un produit semi-fini --</option>
+                                    {% for psf in produits_disponibles %}
+                                    <option value="{{ psf.id }}">
+                                        {{ psf.reference }} - {{ psf.designation }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <a href="{{ url_for('creer_produit', zone_id=zone.id, projet_id=projet.id) }}?type=produit_semi_fini&retour={{ url_for('ajouter_assemblage', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                                   class="btn btn-success" 
+                                   title="Créer un nouveau produit semi-fini">
+                                    <i class="fas fa-plus"></i> Nouveau PSF
+                                </a>
+                            </div>
+                            <div class="form-text">
+                                Sélectionnez le produit semi-fini qui compose ce produit fini
+                                {% if produits_disponibles|length == 0 %}
+                                <br><span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Aucun produit semi-fini disponible. Cliquez sur "Nouveau PSF" pour en créer un.</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Quantité -->
+                        <div class="mb-3">
+                            <label for="quantite" class="form-label">
+                                <i class="fas fa-hashtag"></i> Quantité *
+                            </label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="quantite" 
+                                   name="quantite" 
+                                   step="0.01" 
+                                   min="0.01" 
+                                   value="1.0" 
+                                   required>
+                            <div class="form-text">
+                                Nombre d'unités de ce produit semi-fini nécessaires pour produire 1 unité du produit fini
+                            </div>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('detail_produit', zone_id=zone.id, projet_id=projet.id, produit_id=produit.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Ajouter l'Assemblage
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aide -->
+        <div class="col-md-4">
+            <div class="card bg-light border-0">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-info-circle text-info"></i> Information</h5>
+                    <p class="card-text">
+                        <strong>Assemblage :</strong> Définit les produits semi-finis qui composent ce produit fini.
+                    </p>
+                    <hr>
+                    <p class="card-text">
+                        <strong>Exemple :</strong><br>
+                        Si votre produit fini nécessite 2 unités du produit semi-fini "PSF-001", 
+                        sélectionnez "PSF-001" et indiquez la quantité "2".
+                    </p>
+                    <hr>
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Note :</strong> Seuls les produits semi-finis du même projet sont disponibles.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des assemblages existants -->
+            {% if produit.assemblages.count() > 0 %}
+            <div class="card bg-white border shadow-sm mt-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-list"></i> Assemblages Existants</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for assemblage in produit.assemblages.all() %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ assemblage.produit_compose.reference }}</strong>
+                                <br>
+                                <small class="text-muted">{{ assemblage.produit_compose.designation }}</small>
+                            </div>
+                            <span class="badge bg-info rounded-pill">{{ assemblage.quantite }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-map-marked-alt"></i> Zones de Production</h2>
+        <a href="{{ url_for('creer_zone') }}" class="btn btn-success btn-lg">
+            <i class="fas fa-plus-circle"></i> Créer une Zone
+        </a>
+    </div>
+    
+    <div class="row">
+        {% for zone in zones %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm bg-white border border-2">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">{{ zone.nom }}</h5>
+                </div>
+                <div class="card-body bg-white text-dark">
+                    <p class="card-text text-dark">{{ zone.description or 'Aucune description' }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-info">{{ zone.projets.count() }} projets</span>
+                        <a href="{{ url_for('detail_zone', zone_id=zone.id) }}" class="btn btn-primary">
+                            Voir <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-white">
+                    <small class="text-muted">Créée le {{ zone.date_creation.strftime('%d/%m/%Y') }}</small>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Aucune zone pour le moment.
+                <a href="{{ url_for('creer_zone') }}" class="alert-link">Créez votre première zone !</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

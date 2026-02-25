@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('liste_zones') }}">Zones</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">Nouveau Produit</li>
+        </ol>
+    </nav>
+
+    <h2><i class="fas fa-plus-circle"></i> Créer un Nouveau Produit</h2>
+    <p class="text-muted">Dans le projet : <strong>{{ projet.nom }}</strong></p>
+    
+    <div class="card mt-4">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('creer_produit', zone_id=zone.id, projet_id=projet.id) }}{% if retour %}?retour={{ retour }}{% endif %}">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Référence *</label>
+                        <input type="text" name="reference" class="form-control" placeholder="Ex: PF-BF-001" required>
+                        <small class="text-muted">Référence unique du produit</small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Désignation *</label>
+                        <input type="text" name="designation" class="form-control" placeholder="Ex: Panneau avant" required>
+                        <small class="text-muted">Nom du produit</small>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Type de Produit *</label>
+                    <select name="type_produit" class="form-select" required>
+                        <option value="produit_fini" {% if type_preselectionne == 'produit_fini' %}selected{% endif %}>Produit Fini (PF)</option>
+                        <option value="produit_semi_fini" {% if type_preselectionne == 'produit_semi_fini' %}selected{% endif %}>Produit Semi-Fini (PSF)</option>
+                    </select>
+                    <small class="text-muted">Un produit semi-fini peut être assemblé dans d'autres produits</small>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> <strong>À savoir :</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Produit Fini (PF)</strong> : Produit final qui peut contenir des items et/ou être assemblé avec des PSF</li>
+                        <li><strong>Produit Semi-Fini (PSF)</strong> : Composant qui peut être utilisé dans l'assemblage d'autres produits</li>
+                    </ul>
+                </div>
+                
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Créer le Produit
+                    </button>
+                    <a href="{% if retour %}{{ retour }}{% else %}{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}{% endif %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Annuler
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
