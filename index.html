@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Planning - Hexcel 2026</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fc;
+        }
+        .border-left-primary {
+            border-left: 0.25rem solid #4e73df !important;
+        }
+        .border-left-success {
+            border-left: 0.25rem solid #1cc88a !important;
+        }
+        .border-left-info {
+            border-left: 0.25rem solid #36b9cc !important;
+        }
+        .border-left-warning {
+            border-left: 0.25rem solid #f6c23e !important;
+        }
+        .card {
+            border-radius: 0.35rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-industry"></i> Hexcel Production Planning 2026
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="h3 mb-4">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard de Production
+                </h1>
+            </div>
+        </div>
+
+        <!-- Cartes de statistiques -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-primary text-uppercase mb-1">
+                                    Opérateurs Présents
+                                </div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">14</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-users fa-2x text-secondary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-success text-uppercase mb-1">
+                                    Taux d'Utilisation
+                                </div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">75%</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-chart-line fa-2x text-secondary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-info text-uppercase mb-1">
+                                    Production du Jour
+                                </div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">0 pièces</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-clipboard-list fa-2x text-secondary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-warning text-uppercase mb-1">
+                                    Efficience Moyenne
+                                </div>
+                                <div class="h5 mb-0 fw-bold text-gray-800">85.0%</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-percentage fa-2x text-secondary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions rapides -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3 bg-white">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-tools"></i> Actions Rapides
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-2">
+                                <button class="btn btn-primary w-100">
+                                    <i class="fas fa-sync"></i> Générer Ordonnancement
+                                </button>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <button class="btn btn-warning w-100">
+                                    <i class="fas fa-user-times"></i> Signaler Absence
+                                </button>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <button class="btn btn-info w-100">
+                                    <i class="fas fa-calendar"></i> Voir Planning
+                                </button>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <button class="btn btn-success w-100">
+                                    <i class="fas fa-download"></i> Exporter Planning
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Planning du jour -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3 bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 fw-bold text-primary">
+                            <i class="fas fa-calendar-day"></i> Planning du Jour
+                        </h6>
+                        <div class="text-muted small">
+                            Aujourd'hui
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Frontend Demo</strong> - Cette version affiche uniquement l'interface utilisateur. 
+                            Pour une version complète avec backend, veuillez déployer sur un serveur compatible avec Flask et PostgreSQL.
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th rowspan="2" class="align-middle">Shift</th>
+                                        <th colspan="2" class="text-center">OP01</th>
+                                        <th colspan="2" class="text-center">OP02</th>
+                                        <th colspan="2" class="text-center">OP03</th>
+                                        <th colspan="2" class="text-center">OP04</th>
+                                        <th colspan="2" class="text-center">OP05</th>
+                                    </tr>
+                                    <tr>
+                                        <th class="text-center" style="font-size: 0.85rem;">Item</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Qté</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Item</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Qté</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Item</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Qté</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Item</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Qté</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Item</th>
+                                        <th class="text-center" style="font-size: 0.85rem;">Qté</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-bold">Matin</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">Après-midi</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-bold">Nuit</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                        <td class="text-center" style="font-size: 0.85rem;">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
