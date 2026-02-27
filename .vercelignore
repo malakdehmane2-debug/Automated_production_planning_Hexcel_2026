@@ -1,0 +1,16 @@
+*.py
+__pycache__/
+*.pyc
+*.pyo
+*.db
+instance/
+.env
+venv/
+.venv/
+requirements.txt
+config.py
+models.py
+forms.py
+app.py
+init_db.py
+verifier_projets.py
