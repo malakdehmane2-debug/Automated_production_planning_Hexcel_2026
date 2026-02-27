@@ -7,7 +7,7 @@ BASEDIR = Path(__file__).parent.absolute()
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'votre-cle-secrete-tres-longue'
     # Chemin absolu vers la base de données
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + str(BASEDIR / 'database.db')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + str(BASEDIR / 'database.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Configuration pour les uploads d'images
