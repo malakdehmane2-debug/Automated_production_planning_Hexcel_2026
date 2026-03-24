@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Importer BOM - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">Importer BOM</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">📥 Importer une nomenclature (BOM) depuis Excel</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="fichier_excel" class="form-label fw-bold">Fichier Excel (.xlsx ou .xls)</label>
+                            <input type="file" class="form-control" id="fichier_excel" name="fichier_excel" accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                Le fichier doit contenir les colonnes: ParentItem, ChildItem, NAME, BOMQTY, UNITID, Level
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-upload"></i> Importer
+                            </button>
+                            <a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">ℹ️ Format du fichier Excel</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">Colonnes requises:</h6>
+                    <ul class="small">
+                        <li><strong>ParentItem</strong>: Code du produit parent</li>
+                        <li><strong>ChildItem</strong>: Code du composant enfant</li>
+                        <li><strong>NAME</strong>: Nom/désignation du produit</li>
+                        <li><strong>BOMQTY</strong>: Quantité nécessaire</li>
+                        <li><strong>UNITID</strong>: Unité de mesure (EA, Pcs, sq ft, m2, etc.)</li>
+                        <li><strong>Level</strong>: Niveau dans la nomenclature (1, 2, etc.)</li>
+                    </ul>
+
+                    <h6 class="fw-bold mt-3">Exemple de structure:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ParentItem</th>
+                                    <th>ChildItem</th>
+                                    <th>BOMQTY</th>
+                                    <th>Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>M505110</td>
+                                    <td>M308000</td>
+                                    <td>1</td>
+                                    <td>1</td>
+                                </tr>
+                                <tr>
+                                    <td>M505110</td>
+                                    <td>AV003253</td>
+                                    <td>100</td>
+                                    <td>1</td>
+                                </tr>
+                                <tr>
+                                    <td>M505110</td>
+                                    <td>M206100</td>
+                                    <td>1</td>
+                                    <td>2</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-warning small mt-3 mb-0">
+                        <strong>⚠️ Important:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>Les produits finis sont détectés automatiquement (ParentItem de niveau 1)</li>
+                            <li>Les PSF sont détectés si un ChildItem apparaît aussi comme ParentItem</li>
+                            <li>Les matières premières sont les ChildItem qui ne sont jamais ParentItem</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

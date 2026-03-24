@@ -4,6 +4,8 @@ from config import Config
 from datetime import datetime
 import os
 from werkzeug.utils import secure_filename
+import pandas as pd
+from collections import defaultdict
 
 """ Zohair """
 def create_app():
@@ -471,21 +473,35 @@ def create_app():
         # Besoins totaux en MP (calculés récursivement)
         mp_totaux = defaultdict(lambda: {'designation': '', 'quantite': 0.0, 'unite': ''})
         
-        def calculer_mp_recursif(prod, multiplicateur=1.0):
+        def calculer_mp_recursif(prod, multiplicateur=1.0, niveau=0):
+            indent = "  " * niveau
+            print(f"{indent}DEBUG MP - Produit: {prod.reference}, Multiplicateur: {multiplicateur}")
+            
             # MP directes de ce produit
             items = Item.query.filter_by(produit_id=prod.id).all()
+            print(f"{indent}DEBUG MP - {len(items)} items trouvés pour {prod.reference}")
+            
             for item in items:
+                qte_avant = mp_totaux[item.reference]['quantite']
                 mp_totaux[item.reference]['designation'] = item.designation
                 mp_totaux[item.reference]['quantite'] += item.quantite * multiplicateur
                 mp_totaux[item.reference]['unite'] = item.unite_mesure
+                print(f"{indent}  → {item.reference}: {qte_avant} + ({item.quantite} × {multiplicateur}) = {mp_totaux[item.reference]['quantite']}")
             
             # MP des PSF composants
             assemblages = Assemblage.query.filter_by(produit_principal_id=prod.id).all()
+            print(f"{indent}DEBUG MP - {len(assemblages)} assemblages pour {prod.reference}")
+            
             for assemblage in assemblages:
                 if assemblage.produit_compose:
-                    calculer_mp_recursif(assemblage.produit_compose, multiplicateur * assemblage.quantite)
+                    print(f"{indent}  → Descente vers PSF: {assemblage.produit_compose.reference} (qté: {assemblage.quantite})")
+                    calculer_mp_recursif(assemblage.produit_compose, multiplicateur * assemblage.quantite, niveau + 1)
         
         calculer_mp_recursif(produit)
+        
+        print(f"\n=== RÉSUMÉ MP TOTAUX ===")
+        for ref, data in mp_totaux.items():
+            print(f"{ref}: {data['quantite']} {data['unite']}")
         
         # Convertir en liste triée
         mp_totaux_liste = [
@@ -505,6 +521,214 @@ def create_app():
                              nomenclature=nomenclature,
                              psf_besoins=psf_besoins,
                              mp_totaux=mp_totaux_liste)
+    
+    # ============= ROUTE IMPORTATION EXCEL BOM =============
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/importer-bom', methods=['GET', 'POST'])
+    def importer_bom_excel(zone_id, projet_id):
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        if request.method == 'POST':
+            if 'fichier_excel' not in request.files:
+                flash('❌ Aucun fichier sélectionné', 'danger')
+                return redirect(request.url)
+            
+            file = request.files['fichier_excel']
+            
+            if file.filename == '':
+                flash('❌ Aucun fichier sélectionné', 'danger')
+                return redirect(request.url)
+            
+            if not file.filename.endswith(('.xlsx', '.xls')):
+                flash('❌ Le fichier doit être au format Excel (.xlsx ou .xls)', 'danger')
+                return redirect(request.url)
+            
+            try:
+                # Lire le fichier Excel
+                df = pd.read_excel(file)
+                
+                # Vérifier les colonnes requises
+                colonnes_requises = ['ParentItem', 'ChildItem', 'NAME', 'BOMQTY', 'UNITID', 'Level']
+                colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
+                
+                if colonnes_manquantes:
+                    flash(f'❌ Colonnes manquantes dans le fichier Excel: {", ".join(colonnes_manquantes)}', 'danger')
+                    return redirect(request.url)
+                
+                # Nettoyer les données
+                df = df.dropna(subset=['ParentItem', 'ChildItem'])
+                
+                # Identifier les produits finis (ParentItem qui n'apparaissent jamais comme ChildItem au niveau 1)
+                level_1_items = df[df['Level'] == 1]
+                finished_goods = level_1_items['ParentItem'].unique()
+                
+                # Identifier les PSF: ChildItem de niveau 1 qui ont des composants de niveau 2
+                # On extrait les codes parents de la colonne NAME au niveau 2
+                psf_codes = set()
+                level_2_items = df[df['Level'] == 2]
+                for _, row in level_2_items.iterrows():
+                    name = row['NAME']
+                    if pd.notna(name) and '-' in name:
+                        parent_code = name.split('-')[0]
+                        psf_codes.add(parent_code)
+                
+                print(f"DEBUG - Produits finis détectés: {list(finished_goods)}")
+                print(f"DEBUG - PSF détectés: {list(psf_codes)}")
+                
+                # Dictionnaire pour stocker les produits créés
+                produits_crees = {}
+                items_crees = {}
+                
+                # Statistiques
+                stats = {
+                    'produits_finis': 0,
+                    'produits_semi_finis': 0,
+                    'matieres_premieres': 0,
+                    'assemblages': 0
+                }
+                
+                # Étape 1: Créer tous les produits finis
+                for fg_code in finished_goods:
+                    if fg_code not in produits_crees:
+                        # Récupérer le nom du produit fini
+                        fg_row = df[df['ParentItem'] == fg_code].iloc[0]
+                        fg_name = fg_row['NAME'] if pd.notna(fg_row['NAME']) else fg_code
+                        
+                        # Vérifier si le produit existe déjà
+                        existing = Produit.query.filter_by(reference=fg_code, projet_id=projet_id).first()
+                        if not existing:
+                            produit_fini = Produit(
+                                reference=fg_code,
+                                designation=fg_name,
+                                type_produit='produit_fini',
+                                projet_id=projet_id
+                            )
+                            db.session.add(produit_fini)
+                            db.session.flush()
+                            produits_crees[fg_code] = produit_fini
+                            stats['produits_finis'] += 1
+                        else:
+                            produits_crees[fg_code] = existing
+                
+                # Étape 2: Traiter les composants niveau par niveau
+                for niveau in sorted(df['Level'].unique()):
+                    niveau_data = df[df['Level'] == niveau]
+                    
+                    for _, row in niveau_data.iterrows():
+                        parent_code = row['ParentItem']
+                        child_code = row['ChildItem']
+                        qty = row['BOMQTY']
+                        unit = row['UNITID'] if pd.notna(row['UNITID']) else 'EA'
+                        child_name = row['NAME'] if pd.notna(row['NAME']) else child_code
+                        
+                        # Pour les niveaux 2+, le vrai parent est indiqué dans la colonne NAME
+                        # Exemple: NAME = "M308000-01" signifie que le parent est M308000
+                        if niveau >= 2:
+                            # Extraire le code parent de la colonne NAME (avant le tiret)
+                            if pd.notna(child_name) and '-' in child_name:
+                                real_parent_code = child_name.split('-')[0]
+                                if real_parent_code in produits_crees:
+                                    parent_produit = produits_crees[real_parent_code]
+                                else:
+                                    # Si le parent n'existe pas, ignorer cette ligne
+                                    continue
+                            else:
+                                # Si pas de format reconnu, utiliser ParentItem
+                                if parent_code not in produits_crees:
+                                    continue
+                                parent_produit = produits_crees[parent_code]
+                        else:
+                            # Pour niveau 1, utiliser ParentItem normalement
+                            if parent_code not in produits_crees:
+                                continue
+                            parent_produit = produits_crees[parent_code]
+                        
+                        # Déterminer si le child est un PSF ou une MP
+                        # Un child est un PSF s'il a été détecté dans psf_codes (via la colonne NAME niveau 2)
+                        est_psf = child_code in psf_codes
+                        
+                        if niveau == 1:
+                            print(f"  [Niveau {niveau}] {child_code} → {'PSF' if est_psf else 'MP'}")
+                        
+                        if est_psf:
+                            # Créer ou récupérer le PSF
+                            if child_code not in produits_crees:
+                                existing_psf = Produit.query.filter_by(reference=child_code, projet_id=projet_id).first()
+                                if not existing_psf:
+                                    psf = Produit(
+                                        reference=child_code,
+                                        designation=child_name,
+                                        type_produit='produit_semi_fini',
+                                        projet_id=projet_id
+                                    )
+                                    db.session.add(psf)
+                                    db.session.flush()
+                                    produits_crees[child_code] = psf
+                                    stats['produits_semi_finis'] += 1
+                                    print(f"    ✓ PSF créé: {child_code} (type: produit_semi_fini)")
+                                else:
+                                    produits_crees[child_code] = existing_psf
+                                    print(f"    ⚠ PSF existe déjà: {child_code}")
+                            
+                            # Créer l'assemblage
+                            child_produit = produits_crees[child_code]
+                            existing_assemblage = Assemblage.query.filter_by(
+                                produit_principal_id=parent_produit.id,
+                                produit_compose_id=child_produit.id
+                            ).first()
+                            
+                            if not existing_assemblage:
+                                assemblage = Assemblage(
+                                    produit_principal_id=parent_produit.id,
+                                    produit_compose_id=child_produit.id,
+                                    quantite=qty
+                                )
+                                db.session.add(assemblage)
+                                stats['assemblages'] += 1
+                                print(f"    ✓ Assemblage créé: {parent_produit.reference} → {child_code} (qté: {qty})")
+                        else:
+                            # C'est une matière première
+                            item_key = f"{parent_produit.reference}_{child_code}"
+                            print(f"  [Niveau {niveau}] MP: {child_code} → Parent: {parent_produit.reference} (Qté: {qty} {unit})")
+                            
+                            if item_key not in items_crees:
+                                existing_item = Item.query.filter_by(
+                                    reference=child_code,
+                                    produit_id=parent_produit.id
+                                ).first()
+                                
+                                if not existing_item:
+                                    item = Item(
+                                        reference=child_code,
+                                        designation=child_name,
+                                        quantite=qty,
+                                        unite_mesure=unit,
+                                        produit_id=parent_produit.id
+                                    )
+                                    db.session.add(item)
+                                    items_crees[item_key] = item
+                                    stats['matieres_premieres'] += 1
+                                    print(f"    ✓ MP créée: {child_code} attachée à {parent_produit.reference}")
+                                else:
+                                    print(f"    ⚠ MP existe déjà: {child_code} pour {parent_produit.reference}")
+                            else:
+                                print(f"    ⚠ Item key existe déjà: {item_key}")
+                
+                # Commit toutes les modifications
+                db.session.commit()
+                
+                flash(f'✅ Importation réussie! {stats["produits_finis"]} produits finis, '
+                      f'{stats["produits_semi_finis"]} PSF, {stats["matieres_premieres"]} MP, '
+                      f'{stats["assemblages"]} assemblages créés.', 'success')
+                
+                return redirect(url_for('detail_projet', zone_id=zone_id, projet_id=projet_id))
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f'❌ Erreur lors de l\'importation: {str(e)}', 'danger')
+                return redirect(request.url)
+        
+        return render_template('projets/importer_bom.html', zone=projet.zone, projet=projet)
     
     # ============= ROUTE ORDONNANCEMENT =============
     

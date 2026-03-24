@@ -14,6 +14,9 @@
             <h2><i class="fas fa-project-diagram"></i> {{ projet.nom }}</h2>
         </div>
         <div>
+            <a href="{{ url_for('importer_bom_excel', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-primary">
+                <i class="fas fa-file-excel"></i> Importer BOM Excel
+            </a>
             <a href="{{ url_for('creer_produit', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-success">
                 <i class="fas fa-plus"></i> Ajouter un Produit
             </a>
