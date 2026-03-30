@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Ordonnancement - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">Ordonnancement</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête du projet -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow border-left-primary">
+                <div class="card-body">
+                    <h2 class="mb-2">
+                        <i class="fas fa-project-diagram text-primary"></i> {{ projet.nom }}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-map-marker-alt"></i> Zone: {{ zone.nom }}
+                        {% if projet.description %}
+                            | {{ projet.description }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Options d'ordonnancement -->
+    <div class="row">
+        <!-- Module OF -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100 border-left-primary">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-clipboard-list fa-4x text-primary"></i>
+                    </div>
+                    <h4 class="card-title font-weight-bold text-primary">Module OF</h4>
+                    <p class="card-text text-muted">
+                        Gérer les Ordres de Fabrication: créer, importer, consulter et suivre les OF du projet.
+                    </p>
+                    <ul class="list-unstyled text-left mb-4">
+                        <li><i class="fas fa-check text-success"></i> Créer des OF</li>
+                        <li><i class="fas fa-check text-success"></i> Importer depuis Excel</li>
+                        <li><i class="fas fa-check text-success"></i> Filtrer par statut</li>
+                        <li><i class="fas fa-check text-success"></i> Suivre la progression</li>
+                    </ul>
+                    <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id) }}" 
+                       class="btn btn-primary btn-lg btn-block">
+                        <i class="fas fa-arrow-right"></i> Accéder au Module OF
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configurer Ordonnancement -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100 border-left-success">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-cog fa-4x text-success"></i>
+                    </div>
+                    <h4 class="card-title font-weight-bold text-success">Configurer Ordonnancement</h4>
+                    <p class="card-text text-muted">
+                        Sélectionner les OF à ordonnancer et configurer les paramètres des shifts.
+                    </p>
+                    <ul class="list-unstyled text-left mb-4">
+                        <li><i class="fas fa-check text-success"></i> Sélectionner les OF</li>
+                        <li><i class="fas fa-check text-success"></i> Configurer les shifts</li>
+                        <li><i class="fas fa-check text-success"></i> Gérer les absences</li>
+                        <li><i class="fas fa-check text-success"></i> Générer le planning</li>
+                    </ul>
+                    <a href="{{ url_for('config_ordonnancement', zone_id=zone.id, projet_id=projet.id) }}" 
+                       class="btn btn-success btn-lg btn-block">
+                        <i class="fas fa-arrow-right"></i> Configurer
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Voir Planning -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100 border-left-info">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-calendar-alt fa-4x text-info"></i>
+                    </div>
+                    <h4 class="card-title font-weight-bold text-info">Voir Planning</h4>
+                    <p class="card-text text-muted">
+                        Consulter le planning d'ordonnancement généré avec les détails par jour et shift.
+                    </p>
+                    <ul class="list-unstyled text-left mb-4">
+                        <li><i class="fas fa-check text-success"></i> Vue tableau détaillée</li>
+                        <li><i class="fas fa-check text-success"></i> Statistiques globales</li>
+                        <li><i class="fas fa-check text-success"></i> Détails par OF</li>
+                        <li><i class="fas fa-check text-success"></i> Export Excel</li>
+                    </ul>
+                    <a href="{{ url_for('voir_ordonnancement', zone_id=zone.id, projet_id=projet.id) }}" 
+                       class="btn btn-info btn-lg btn-block">
+                        <i class="fas fa-arrow-right"></i> Voir le Planning
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Ordres de Fabrication
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ nb_of_total if nb_of_total is defined else 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                OF En Cours
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ nb_of_en_cours if nb_of_en_cours is defined else 0 }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-spinner fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Planning Généré
+                            </div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {{ 'Oui' if planning_existe else 'Non' }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-check fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

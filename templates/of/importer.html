@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Importer OF - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id) }}">Ordres de Fabrication</a></li>
+            <li class="breadcrumb-item active">Importer Excel</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Formulaire Import -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">📥 Importer des OF depuis Excel</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-4">
+                            <label for="fichier_excel" class="form-label fw-bold">
+                                Fichier Excel (.xlsx ou .xls)
+                            </label>
+                            <input type="file" class="form-control" id="fichier_excel" 
+                                   name="fichier_excel" accept=".xlsx,.xls" required>
+                            <div class="form-text">
+                                Le fichier doit contenir les colonnes obligatoires listées ci-contre
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-upload"></i> Importer
+                            </button>
+                            <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Annuler
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Exemple de Structure -->
+            <div class="card shadow mt-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-table"></i> Exemple de Structure Excel</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Produit</th>
+                                    <th>Quantite</th>
+                                    <th>DateLancement</th>
+                                    <th>DateLivraison</th>
+                                    <th>PrioriteEDD</th>
+                                    <th>TempsCycle</th>
+                                    <th>CapaciteOperateur</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>M505110</td>
+                                    <td>100</td>
+                                    <td>2024-03-25</td>
+                                    <td>2024-03-29</td>
+                                    <td>1</td>
+                                    <td>0.5</td>
+                                    <td>20</td>
+                                </tr>
+                                <tr>
+                                    <td>M505111</td>
+                                    <td>150</td>
+                                    <td>2024-03-26</td>
+                                    <td>2024-03-30</td>
+                                    <td>2</td>
+                                    <td>0.6</td>
+                                    <td>18</td>
+                                </tr>
+                                <tr>
+                                    <td>M505115</td>
+                                    <td>200</td>
+                                    <td>2024-03-27</td>
+                                    <td>2024-04-02</td>
+                                    <td>3</td>
+                                    <td>0.4</td>
+                                    <td>25</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info small mt-3 mb-0">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Note:</strong> Les colonnes TempsCycle et CapaciteOperateur sont optionnelles.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aide et Instructions -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Format du Fichier</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold">Colonnes Obligatoires:</h6>
+                    <ul class="small">
+                        <li><strong>Produit:</strong> Code du produit (référence exacte)</li>
+                        <li><strong>Quantite:</strong> Quantité à produire (nombre entier)</li>
+                        <li><strong>DateLancement:</strong> Date de début (YYYY-MM-DD)</li>
+                        <li><strong>DateLivraison:</strong> Date de livraison (YYYY-MM-DD)</li>
+                        <li><strong>PrioriteEDD:</strong> Priorité de 1 à 5 (1=urgent)</li>
+                    </ul>
+
+                    <h6 class="fw-bold mt-3">Colonnes Optionnelles:</h6>
+                    <ul class="small">
+                        <li><strong>TempsCycle:</strong> Temps de cycle en heures (décimal)</li>
+                        <li><strong>CapaciteOperateur:</strong> Unités par shift et par opérateur</li>
+                    </ul>
+
+                    <h6 class="fw-bold mt-3">Format des Dates:</h6>
+                    <p class="small mb-0">
+                        Les dates doivent être au format <code>YYYY-MM-DD</code><br>
+                        Exemple: <code>2024-03-25</code> pour le 25 mars 2024
+                    </p>
+                </div>
+            </div>
+
+            <div class="card shadow mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Points d'Attention</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="small mb-0">
+                        <li>Les codes produits doivent correspondre exactement aux produits existants dans le projet</li>
+                        <li>Les dates doivent être valides et dans le futur</li>
+                        <li>La priorité EDD doit être entre 1 et 5</li>
+                        <li>Les quantités doivent être des nombres entiers positifs</li>
+                        <li>Si TempsCycle ou CapaciteOperateur ne sont pas fournis, des valeurs par défaut seront utilisées</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card shadow">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-download"></i> Télécharger un Exemple</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small">
+                        Téléchargez un fichier Excel exemple pré-rempli pour vous aider à formater vos données.
+                    </p>
+                    <a href="#" class="btn btn-secondary btn-block" onclick="genererExemple(); return false;">
+                        <i class="fas fa-file-excel"></i> Télécharger exemple.xlsx
+                    </a>
+                    <div class="alert alert-info small mt-3 mb-0">
+                        <i class="fas fa-lightbulb"></i>
+                        Modifiez ce fichier avec vos données puis importez-le.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function genererExemple() {
+    // Créer un fichier Excel exemple côté client
+    // Pour une vraie implémentation, vous pouvez utiliser une bibliothèque comme SheetJS
+    alert('Fonctionnalité à implémenter: génération d\'un fichier Excel exemple.\n\n' +
+          'En attendant, créez un fichier Excel avec les colonnes:\n' +
+          'Produit | Quantite | DateLancement | DateLivraison | PrioriteEDD | TempsCycle | CapaciteOperateur');
+}
+
+// Validation du fichier avant soumission
+document.querySelector('form').addEventListener('submit', function(e) {
+    var fileInput = document.getElementById('fichier_excel');
+    var file = fileInput.files[0];
+    
+    if (!file) {
+        e.preventDefault();
+        alert('Veuillez sélectionner un fichier Excel');
+        return false;
+    }
+    
+    var extension = file.name.split('.').pop().toLowerCase();
+    if (extension !== 'xlsx' && extension !== 'xls') {
+        e.preventDefault();
+        alert('Le fichier doit être au format Excel (.xlsx ou .xls)');
+        return false;
+    }
+    
+    // Afficher un message de chargement
+    var submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importation en cours...';
+    submitBtn.disabled = true;
+});
+</script>
+{% endblock %}

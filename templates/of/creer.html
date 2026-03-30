@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Créer un OF - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id) }}">Ordres de Fabrication</a></li>
+            <li class="breadcrumb-item active">Créer OF</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-plus-circle"></i> Créer un Ordre de Fabrication</h2>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Formulaire -->
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-list"></i> Informations de l'OF</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('creer_of', zone_id=zone.id, projet_id=projet.id) }}">
+                        <!-- Sélection Produit -->
+                        <div class="form-group">
+                            <label for="produit_id" class="font-weight-bold">
+                                Produit <span class="text-danger">*</span>
+                            </label>
+                            <select class="form-control" id="produit_id" name="produit_id" required>
+                                <option value="">-- Sélectionner un produit --</option>
+                                {% for produit in produits %}
+                                <option value="{{ produit.id }}" 
+                                        data-reference="{{ produit.reference }}"
+                                        data-designation="{{ produit.designation }}">
+                                    {{ produit.reference }} - {{ produit.designation }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Sélectionnez le produit fini à fabriquer</small>
+                        </div>
+
+                        <!-- Quantité -->
+                        <div class="form-group">
+                            <label for="quantite_demandee" class="font-weight-bold">
+                                Quantité Demandée <span class="text-danger">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="quantite_demandee" 
+                                   name="quantite_demandee" min="1" required>
+                            <small class="form-text text-muted">Nombre d'unités à produire</small>
+                        </div>
+
+                        <!-- Dates -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="date_lancement" class="font-weight-bold">Date de Lancement</label>
+                                    <input type="date" class="form-control" id="date_lancement" name="date_lancement">
+                                    <small class="form-text text-muted">Date de début de production</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="date_livraison_prevue" class="font-weight-bold">Date de Livraison Prévue</label>
+                                    <input type="date" class="form-control" id="date_livraison_prevue" name="date_livraison_prevue">
+                                    <small class="form-text text-muted">Date limite de livraison</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Priorité EDD -->
+                        <div class="form-group">
+                            <label for="priorite_edd" class="font-weight-bold">
+                                Priorité EDD (Earliest Due Date)
+                            </label>
+                            <select class="form-control" id="priorite_edd" name="priorite_edd">
+                                <option value="1">1 - Lundi (Priorité Maximale)</option>
+                                <option value="2">2 - Mardi</option>
+                                <option value="3">3 - Mercredi</option>
+                                <option value="4">4 - Jeudi</option>
+                                <option value="5" selected>5 - Vendredi (Priorité Minimale)</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                Plus le chiffre est bas, plus la priorité est élevée (1 = Lundi = Urgent)
+                            </small>
+                        </div>
+
+                        <hr>
+
+                        <!-- Paramètres Techniques (Optionnels) -->
+                        <h5 class="text-secondary mb-3">
+                            <i class="fas fa-cogs"></i> Paramètres Techniques (Optionnel)
+                        </h5>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="temps_cycle" class="font-weight-bold">Temps de Cycle (heures)</label>
+                                    <input type="number" class="form-control" id="temps_cycle" 
+                                           name="temps_cycle" step="0.1" min="0">
+                                    <small class="form-text text-muted">Temps pour produire 1 unité</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="capacite_par_operateur" class="font-weight-bold">Capacité/Opérateur</label>
+                                    <input type="number" class="form-control" id="capacite_par_operateur" 
+                                           name="capacite_par_operateur" step="0.1" min="0">
+                                    <small class="form-text text-muted">Unités par shift et par opérateur</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="efficience" class="font-weight-bold">Efficience</label>
+                                    <input type="number" class="form-control" id="efficience" 
+                                           name="efficience" step="0.01" min="0" max="1" value="1.0">
+                                    <small class="form-text text-muted">Entre 0.0 et 1.0 (ex: 0.85 = 85%)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Commentaire -->
+                        <div class="form-group">
+                            <label for="commentaire" class="font-weight-bold">Commentaire</label>
+                            <textarea class="form-control" id="commentaire" name="commentaire" rows="3"></textarea>
+                            <small class="form-text text-muted">Notes ou instructions particulières</small>
+                        </div>
+
+                        <!-- Boutons -->
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Annuler
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Créer l'OF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Aide -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Aide</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="font-weight-bold">Champs Obligatoires</h6>
+                    <ul class="small">
+                        <li><strong>Produit:</strong> Le produit fini à fabriquer</li>
+                        <li><strong>Quantité:</strong> Nombre d'unités à produire</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold mt-3">Priorité EDD</h6>
+                    <p class="small">
+                        La priorité EDD (Earliest Due Date) détermine l'ordre de production:
+                    </p>
+                    <ul class="small">
+                        <li><span class="badge badge-danger">1 - Lundi</span> Urgent</li>
+                        <li><span class="badge badge-warning">2 - Mardi</span> Haute</li>
+                        <li><span class="badge badge-info">3 - Mercredi</span> Moyenne</li>
+                        <li><span class="badge badge-primary">4 - Jeudi</span> Basse</li>
+                        <li><span class="badge badge-secondary">5 - Vendredi</span> Minimale</li>
+                    </ul>
+
+                    <h6 class="font-weight-bold mt-3">Paramètres Techniques</h6>
+                    <p class="small">
+                        Ces paramètres sont utilisés pour l'ordonnancement automatique:
+                    </p>
+                    <ul class="small">
+                        <li><strong>Temps de cycle:</strong> Durée pour produire 1 unité</li>
+                        <li><strong>Capacité/Op:</strong> Production d'un opérateur par shift</li>
+                        <li><strong>Efficience:</strong> Taux d'efficacité moyen (0.85 = 85%)</li>
+                    </ul>
+
+                    <div class="alert alert-warning small mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Note:</strong> Si les paramètres techniques ne sont pas renseignés, 
+                        des valeurs par défaut seront utilisées lors de l'ordonnancement.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Produits Disponibles -->
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-box"></i> Produits Disponibles</h5>
+                </div>
+                <div class="card-body">
+                    {% if produits %}
+                    <div class="list-group list-group-flush">
+                        {% for produit in produits %}
+                        <div class="list-group-item px-0">
+                            <div class="font-weight-bold">{{ produit.reference }}</div>
+                            <small class="text-muted">{{ produit.designation }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning small mb-0">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Aucun produit fini dans ce projet. 
+                        <a href="{{ url_for('importer_bom_excel', zone_id=zone.id, projet_id=projet.id) }}">
+                            Importer une nomenclature
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Définir la date minimale à aujourd'hui
+    var today = new Date().toISOString().split('T')[0];
+    $('#date_lancement').attr('min', today);
+    $('#date_livraison_prevue').attr('min', today);
+    
+    // Validation: date livraison >= date lancement
+    $('#date_livraison_prevue').on('change', function() {
+        var dateLancement = $('#date_lancement').val();
+        var dateLivraison = $(this).val();
+        
+        if (dateLancement && dateLivraison && dateLivraison < dateLancement) {
+            alert('La date de livraison doit être postérieure ou égale à la date de lancement');
+            $(this).val('');
+        }
+    });
+});
+</script>
+{% endblock %}

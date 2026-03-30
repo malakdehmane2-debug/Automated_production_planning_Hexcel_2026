@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}Planning Ordonnancement - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">Planning Ordonnancement</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-calendar-alt"></i> Planning d'Ordonnancement</h2>
+            <p class="text-muted mb-0">Projet: {{ projet.nom }} | Zone: {{ zone.nom }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('config_ordonnancement', zone_id=zone.id, projet_id=projet.id) }}" 
+               class="btn btn-secondary">
+                <i class="fas fa-cog"></i> Reconfigurer
+            </a>
+            <button class="btn btn-success" onclick="exporterExcel()">
+                <i class="fas fa-file-excel"></i> Exporter Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">OF Ordonnancés</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-of">{{ planning_data.nb_of if planning_data else 0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Durée Totale</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-duree">{{ planning_data.duree_jours if planning_data else 0 }} jours</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Taux Utilisation</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-utilisation">{{ planning_data.taux_utilisation if planning_data else 0 }}%</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Shifts Totaux</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="stat-shifts">{{ planning_data.nb_shifts if planning_data else 0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Planning -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-table"></i> Planning Détaillé par Jour et Shift
+            </h6>
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-primary active" onclick="afficherVue('tableau')">
+                    <i class="fas fa-table"></i> Tableau
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="afficherVue('gantt')">
+                    <i class="fas fa-chart-bar"></i> Gantt
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if planning_data and planning_data.assignments %}
+            <!-- Vue Tableau -->
+            <div id="vue-tableau">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm table-hover" id="planningTable">
+                        <thead class="table-primary">
+                            <tr>
+                                <th rowspan="2" class="align-middle">Jour</th>
+                                <th rowspan="2" class="align-middle">Shift</th>
+                                {% for i in range(1, 15) %}
+                                    <th colspan="2" class="text-center">OP{{ "%02d"|format(i) }}</th>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                {% for i in range(1, 15) %}
+                                    <th class="text-center small">Item</th>
+                                    <th class="text-center small">Qté</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if planning_data.assignments %}
+                                {% set ns = namespace(current_day=0, current_shift=0) %}
+                                {% for assignment in planning_data.assignments %}
+                                    {% if assignment.Jour != ns.current_day or assignment.Shift != ns.current_shift %}
+                                        {% if ns.current_day > 0 %}
+                                            </tr>
+                                        {% endif %}
+                                        <tr>
+                                            {% if assignment.Jour != ns.current_day %}
+                                                <td rowspan="3" class="align-middle font-weight-bold bg-light">
+                                                    Jour {{ assignment.Jour }}
+                                                </td>
+                                                {% set ns.current_day = assignment.Jour %}
+                                            {% endif %}
+                                            <td class="font-weight-bold">
+                                                {% if assignment.Shift == 1 %}
+                                                    <i class="fas fa-sun text-warning"></i> Matin
+                                                {% elif assignment.Shift == 2 %}
+                                                    <i class="fas fa-cloud-sun text-info"></i> Après-midi
+                                                {% else %}
+                                                    <i class="fas fa-moon text-secondary"></i> Nuit
+                                                {% endif %}
+                                            </td>
+                                            {% set ns.current_shift = assignment.Shift %}
+                                    {% endif %}
+                                    <td class="text-center small">{{ assignment.Item }}</td>
+                                    <td class="text-center small font-weight-bold">{{ assignment.Quantité }}</td>
+                                {% endfor %}
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Vue Gantt (Placeholder) -->
+            <div id="vue-gantt" style="display: none;">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Vue Gantt en cours de développement. Utilisez la vue tableau pour le moment.
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Aucun planning généré. 
+                <a href="{{ url_for('config_ordonnancement', zone_id=zone.id, projet_id=projet.id) }}">
+                    Configurer et générer un planning
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Détails par OF -->
+    {% if planning_data and planning_data.of_details %}
+    <div class="card shadow">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-list-alt"></i> Détails par Ordre de Fabrication
+            </h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° OF</th>
+                            <th>Produit</th>
+                            <th>Quantité Planifiée</th>
+                            <th>Priorité EDD</th>
+                            <th>Début Production</th>
+                            <th>Fin Production</th>
+                            <th>Durée</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for of_detail in planning_data.of_details %}
+                        <tr>
+                            <td><strong>{{ of_detail.numero_of }}</strong></td>
+                            <td>{{ of_detail.produit }}</td>
+                            <td>{{ of_detail.quantite }}</td>
+                            <td>
+                                {% if of_detail.priorite == 1 %}
+                                    <span class="badge badge-danger">1 - Lundi</span>
+                                {% elif of_detail.priorite == 2 %}
+                                    <span class="badge badge-warning">2 - Mardi</span>
+                                {% elif of_detail.priorite == 3 %}
+                                    <span class="badge badge-info">3 - Mercredi</span>
+                                {% elif of_detail.priorite == 4 %}
+                                    <span class="badge badge-primary">4 - Jeudi</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">5 - Vendredi</span>
+                                {% endif %}
+                            </td>
+                            <td>Jour {{ of_detail.jour_debut }}, Shift {{ of_detail.shift_debut }}</td>
+                            <td>Jour {{ of_detail.jour_fin }}, Shift {{ of_detail.shift_fin }}</td>
+                            <td>{{ of_detail.duree_shifts }} shifts</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function afficherVue(vue) {
+    if (vue === 'tableau') {
+        $('#vue-tableau').show();
+        $('#vue-gantt').hide();
+    } else {
+        $('#vue-tableau').hide();
+        $('#vue-gantt').show();
+    }
+}
+
+function exporterExcel() {
+    // Fonction d'export Excel
+    // Pour l'instant, afficher un message
+    alert('Export Excel en cours de développement.\n\nLe planning sera exporté au format Excel avec:\n- Planning détaillé par jour/shift/opérateur\n- Résumé par OF\n- Statistiques globales');
+    
+    // TODO: Implémenter l'export réel
+    // window.location.href = "{{ url_for('exporter_planning_excel', zone_id=zone.id, projet_id=projet.id) }}";
+}
+
+$(document).ready(function() {
+    // Initialiser DataTables si disponible
+    if ($.fn.DataTable) {
+        $('#planningTable').DataTable({
+            "paging": false,
+            "searching": false,
+            "info": false,
+            "ordering": false
+        });
+    }
+});
+</script>
+{% endblock %}

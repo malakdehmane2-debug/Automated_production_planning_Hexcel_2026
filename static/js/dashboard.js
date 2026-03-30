@@ -41,6 +41,20 @@ function exporterPlanning() {
     afficherNotification('Fonctionnalité d\'exportation du planning à implémenter', 'info');
 }
 
+// Fonction pour naviguer vers la page du projet sélectionné
+function naviguerVersProjet() {
+    const select = document.getElementById('selectProjet');
+    const value = select.value;
+    
+    if (value) {
+        const [zoneId, projetId] = value.split('-');
+        // Réinitialiser la sélection avant de naviguer
+        select.value = '';
+        // Naviguer vers la page du projet
+        window.location.href = `/zone/${zoneId}/projet/${projetId}/ordonnancement`;
+    }
+}
+
 // Initialisation du tableau de bord
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Tableau de bord initialisé');

@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}Ordres de Fabrication - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">Ordres de Fabrication</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-clipboard-list"></i> Ordres de Fabrication - {{ projet.nom }}</h2>
+        <div>
+            <a href="{{ url_for('creer_of', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Créer OF
+            </a>
+            <a href="{{ url_for('importer_of_excel', zone_id=zone.id, projet_id=projet.id) }}" class="btn btn-primary">
+                <i class="fas fa-file-excel"></i> Importer Excel
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total OF</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">En Attente</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.en_attente }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">En Cours</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.en_cours }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-cog fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Terminés</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.termine }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">Filtres</h6>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id, statut='tous') }}" 
+                       class="btn btn-sm {% if statut_filtre == 'tous' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                        Tous
+                    </a>
+                    <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id, statut='en_attente') }}" 
+                       class="btn btn-sm {% if statut_filtre == 'en_attente' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+                        En Attente
+                    </a>
+                    <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id, statut='en_cours') }}" 
+                       class="btn btn-sm {% if statut_filtre == 'en_cours' %}btn-info{% else %}btn-outline-info{% endif %}">
+                        En Cours
+                    </a>
+                    <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id, statut='termine') }}" 
+                       class="btn btn-sm {% if statut_filtre == 'termine' %}btn-success{% else %}btn-outline-success{% endif %}">
+                        Terminés
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des OF -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">
+                <i class="fas fa-list"></i> Liste des Ordres de Fabrication
+            </h6>
+        </div>
+        <div class="card-body">
+            {% if ordres %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="dataTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>N° OF</th>
+                            <th>Produit</th>
+                            <th>Quantité</th>
+                            <th>Progression</th>
+                            <th>Date Lancement</th>
+                            <th>Date Livraison</th>
+                            <th>Priorité EDD</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for of in ordres %}
+                        <tr {% if of.est_en_retard %}class="table-danger"{% endif %}>
+                            <td><strong>{{ of.numero_of }}</strong></td>
+                            <td>
+                                <div>{{ of.produit.reference }}</div>
+                                <small class="text-muted">{{ of.produit.designation }}</small>
+                            </td>
+                            <td>
+                                <strong>{{ of.quantite_produite }}</strong> / {{ of.quantite_demandee }}
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar {% if of.taux_completion == 100 %}bg-success{% elif of.taux_completion > 50 %}bg-info{% else %}bg-warning{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ of.taux_completion }}%"
+                                         aria-valuenow="{{ of.taux_completion }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ of.taux_completion }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if of.date_lancement %}
+                                    {{ of.date_lancement.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if of.date_livraison_prevue %}
+                                    {{ of.date_livraison_prevue.strftime('%d/%m/%Y') }}
+                                    {% if of.est_en_retard %}
+                                        <span class="badge badge-danger ml-1">Retard</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if of.priorite_edd == 1 %}
+                                    <span class="badge badge-danger">Lundi</span>
+                                {% elif of.priorite_edd == 2 %}
+                                    <span class="badge badge-warning">Mardi</span>
+                                {% elif of.priorite_edd == 3 %}
+                                    <span class="badge badge-info">Mercredi</span>
+                                {% elif of.priorite_edd == 4 %}
+                                    <span class="badge badge-primary">Jeudi</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">Vendredi</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if of.statut == 'en_attente' %}
+                                    <span class="badge badge-warning">En Attente</span>
+                                {% elif of.statut == 'en_cours' %}
+                                    <span class="badge badge-info">En Cours</span>
+                                {% elif of.statut == 'termine' %}
+                                    <span class="badge badge-success">Terminé</span>
+                                {% else %}
+                                    <span class="badge badge-danger">Annulé</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#detailModal{{ of.id }}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-warning">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Modal Détails -->
+                        <div class="modal fade" id="detailModal{{ of.id }}" tabindex="-1">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Détails OF: {{ of.numero_of }}</h5>
+                                        <button type="button" class="close" data-dismiss="modal">
+                                            <span>&times;</span>
+                                        </button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <h6 class="text-primary">Informations Générales</h6>
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>Numéro OF:</th>
+                                                        <td>{{ of.numero_of }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Produit:</th>
+                                                        <td>{{ of.produit.reference }} - {{ of.produit.designation }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Quantité:</th>
+                                                        <td>{{ of.quantite_produite }} / {{ of.quantite_demandee }}</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Statut:</th>
+                                                        <td>
+                                                            {% if of.statut == 'en_attente' %}
+                                                                <span class="badge badge-warning">En Attente</span>
+                                                            {% elif of.statut == 'en_cours' %}
+                                                                <span class="badge badge-info">En Cours</span>
+                                                            {% elif of.statut == 'termine' %}
+                                                                <span class="badge badge-success">Terminé</span>
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <h6 class="text-primary">Paramètres Techniques</h6>
+                                                <table class="table table-sm">
+                                                    <tr>
+                                                        <th>Temps Cycle:</th>
+                                                        <td>{{ of.temps_cycle or '-' }} h</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Capacité/Op:</th>
+                                                        <td>{{ of.capacite_par_operateur or '-' }} unités/shift</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Efficience:</th>
+                                                        <td>{{ (of.efficience * 100)|round(1) }}%</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <th>Priorité EDD:</th>
+                                                        <td>{{ of.priorite_edd }}</td>
+                                                    </tr>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        {% if of.commentaire %}
+                                        <div class="mt-3">
+                                            <h6 class="text-primary">Commentaire</h6>
+                                            <p>{{ of.commentaire }}</p>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Fermer</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> Aucun ordre de fabrication trouvé.
+                <a href="{{ url_for('creer_of', zone_id=zone.id, projet_id=projet.id) }}">Créer un OF</a> ou
+                <a href="{{ url_for('importer_of_excel', zone_id=zone.id, projet_id=projet.id) }}">importer depuis Excel</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json"
+        },
+        "order": [[0, "desc"]]
+    });
+});
+</script>
+{% endblock %}

@@ -1,5 +1,5 @@
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
-from models import db, Zone, Projet, Produit, Item, Assemblage, ObjectifMensuel
+from models import db, Zone, Projet, Produit, Item, Assemblage, ObjectifMensuel, OrdreFabrication
 from config import Config
 from datetime import datetime
 import os
@@ -547,6 +547,26 @@ def create_app():
                 # Lire le fichier Excel
                 df = pd.read_excel(file)
                 
+                # Normaliser les noms de colonnes (insensible à la casse)
+                df.columns = df.columns.str.strip()
+                column_mapping = {}
+                for col in df.columns:
+                    col_lower = col.lower()
+                    if col_lower == 'parentitem':
+                        column_mapping[col] = 'ParentItem'
+                    elif col_lower == 'childitem':
+                        column_mapping[col] = 'ChildItem'
+                    elif col_lower == 'name':
+                        column_mapping[col] = 'NAME'
+                    elif col_lower == 'bomqty':
+                        column_mapping[col] = 'BOMQTY'
+                    elif col_lower == 'unitid':
+                        column_mapping[col] = 'UNITID'
+                    elif col_lower == 'level':
+                        column_mapping[col] = 'Level'
+                
+                df = df.rename(columns=column_mapping)
+                
                 # Vérifier les colonnes requises
                 colonnes_requises = ['ParentItem', 'ChildItem', 'NAME', 'BOMQTY', 'UNITID', 'Level']
                 colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
@@ -730,7 +750,272 @@ def create_app():
         
         return render_template('projets/importer_bom.html', zone=projet.zone, projet=projet)
     
-    # ============= ROUTE ORDONNANCEMENT =============
+    # ============= ROUTES MODULE OF =============
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/of')
+    def module_of_projet(zone_id, projet_id):
+        """Module de gestion des OF pour un projet spécifique"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        # Récupérer le filtre de statut
+        statut_filtre = request.args.get('statut', 'tous')
+        
+        # Construire la requête
+        query = OrdreFabrication.query.filter_by(projet_id=projet_id)
+        
+        if statut_filtre == 'en_cours':
+            query = query.filter_by(statut='en_cours')
+        elif statut_filtre == 'termine':
+            query = query.filter_by(statut='termine')
+        elif statut_filtre == 'en_attente':
+            query = query.filter_by(statut='en_attente')
+        
+        ordres = query.order_by(OrdreFabrication.date_creation.desc()).all()
+        
+        # Statistiques
+        stats = {
+            'total': OrdreFabrication.query.filter_by(projet_id=projet_id).count(),
+            'en_cours': OrdreFabrication.query.filter_by(projet_id=projet_id, statut='en_cours').count(),
+            'termine': OrdreFabrication.query.filter_by(projet_id=projet_id, statut='termine').count(),
+            'en_attente': OrdreFabrication.query.filter_by(projet_id=projet_id, statut='en_attente').count()
+        }
+        
+        return render_template('of/liste.html', 
+                             zone=projet.zone, 
+                             projet=projet, 
+                             ordres=ordres,
+                             stats=stats,
+                             statut_filtre=statut_filtre)
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/of/creer', methods=['GET', 'POST'])
+    def creer_of(zone_id, projet_id):
+        """Créer un nouvel OF"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        if request.method == 'POST':
+            try:
+                # Générer le numéro d'OF
+                dernier_of = OrdreFabrication.query.order_by(OrdreFabrication.id.desc()).first()
+                if dernier_of:
+                    dernier_num = int(dernier_of.numero_of.split('-')[-1])
+                    nouveau_num = dernier_num + 1
+                else:
+                    nouveau_num = 1
+                
+                numero_of = f"OF-{datetime.now().year}-{nouveau_num:04d}"
+                
+                # Créer l'OF
+                of = OrdreFabrication(
+                    numero_of=numero_of,
+                    projet_id=projet_id,
+                    produit_id=request.form['produit_id'],
+                    quantite_demandee=int(request.form['quantite_demandee']),
+                    date_lancement=datetime.strptime(request.form['date_lancement'], '%Y-%m-%d').date() if request.form.get('date_lancement') else None,
+                    date_livraison_prevue=datetime.strptime(request.form['date_livraison_prevue'], '%Y-%m-%d').date() if request.form.get('date_livraison_prevue') else None,
+                    priorite_edd=int(request.form.get('priorite_edd', 5)),
+                    temps_cycle=float(request.form['temps_cycle']) if request.form.get('temps_cycle') else None,
+                    capacite_par_operateur=float(request.form['capacite_par_operateur']) if request.form.get('capacite_par_operateur') else None,
+                    efficience=float(request.form.get('efficience', 1.0)),
+                    commentaire=request.form.get('commentaire', '')
+                )
+                
+                db.session.add(of)
+                db.session.commit()
+                
+                flash(f'✅ OF {numero_of} créé avec succès!', 'success')
+                return redirect(url_for('module_of_projet', zone_id=zone_id, projet_id=projet_id))
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f'❌ Erreur lors de la création de l\'OF: {str(e)}', 'danger')
+        
+        # Récupérer les produits du projet pour le formulaire
+        produits = Produit.query.filter_by(projet_id=projet_id, type_produit='produit_fini').all()
+        
+        return render_template('of/creer.html', zone=projet.zone, projet=projet, produits=produits)
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/of/importer', methods=['GET', 'POST'])
+    def importer_of_excel(zone_id, projet_id):
+        """Importer des OF depuis un fichier Excel"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        if request.method == 'POST':
+            if 'fichier_excel' not in request.files:
+                flash('❌ Aucun fichier sélectionné', 'danger')
+                return redirect(request.url)
+            
+            file = request.files['fichier_excel']
+            
+            if file.filename == '':
+                flash('❌ Aucun fichier sélectionné', 'danger')
+                return redirect(request.url)
+            
+            try:
+                df = pd.read_excel(file)
+                
+                # Colonnes attendues
+                colonnes_requises = ['Produit', 'Quantite', 'DateLancement', 'DateLivraison', 'PrioriteEDD']
+                colonnes_manquantes = [col for col in colonnes_requises if col not in df.columns]
+                
+                if colonnes_manquantes:
+                    flash(f'❌ Colonnes manquantes: {", ".join(colonnes_manquantes)}', 'danger')
+                    return redirect(request.url)
+                
+                stats = {'crees': 0, 'erreurs': 0}
+                
+                for _, row in df.iterrows():
+                    try:
+                        # Trouver le produit
+                        produit = Produit.query.filter_by(reference=row['Produit'], projet_id=projet_id).first()
+                        
+                        if not produit:
+                            stats['erreurs'] += 1
+                            continue
+                        
+                        # Générer numéro OF
+                        dernier_of = OrdreFabrication.query.order_by(OrdreFabrication.id.desc()).first()
+                        if dernier_of:
+                            dernier_num = int(dernier_of.numero_of.split('-')[-1])
+                            nouveau_num = dernier_num + 1
+                        else:
+                            nouveau_num = 1
+                        
+                        numero_of = f"OF-{datetime.now().year}-{nouveau_num:04d}"
+                        
+                        of = OrdreFabrication(
+                            numero_of=numero_of,
+                            projet_id=projet_id,
+                            produit_id=produit.id,
+                            quantite_demandee=int(row['Quantite']),
+                            date_lancement=pd.to_datetime(row['DateLancement']).date() if pd.notna(row['DateLancement']) else None,
+                            date_livraison_prevue=pd.to_datetime(row['DateLivraison']).date() if pd.notna(row['DateLivraison']) else None,
+                            priorite_edd=int(row['PrioriteEDD']) if pd.notna(row['PrioriteEDD']) else 5,
+                            temps_cycle=float(row['TempsCycle']) if 'TempsCycle' in row and pd.notna(row['TempsCycle']) else None,
+                            capacite_par_operateur=float(row['CapaciteOperateur']) if 'CapaciteOperateur' in row and pd.notna(row['CapaciteOperateur']) else None
+                        )
+                        
+                        db.session.add(of)
+                        stats['crees'] += 1
+                        
+                    except Exception as e:
+                        print(f"Erreur ligne: {e}")
+                        stats['erreurs'] += 1
+                        continue
+                
+                db.session.commit()
+                flash(f'✅ {stats["crees"]} OF importés, {stats["erreurs"]} erreurs', 'success')
+                return redirect(url_for('module_of_projet', zone_id=zone_id, projet_id=projet_id))
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f'❌ Erreur: {str(e)}', 'danger')
+        
+        return render_template('of/importer.html', zone=projet.zone, projet=projet)
+    
+    # ============= ROUTES ORDONNANCEMENT =============
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/ordonnancement')
+    def projet_ordonnancement(zone_id, projet_id):
+        """Page dédiée au projet avec les 3 options d'ordonnancement"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        # Statistiques rapides
+        nb_of_total = OrdreFabrication.query.filter_by(projet_id=projet_id).count()
+        nb_of_en_cours = OrdreFabrication.query.filter_by(projet_id=projet_id, statut='en_cours').count()
+        
+        # Vérifier si un planning existe
+        from flask import session
+        planning_existe = f'planning_projet_{projet_id}' in session
+        
+        return render_template('ordonnancement/projet.html',
+                             zone=projet.zone,
+                             projet=projet,
+                             nb_of_total=nb_of_total,
+                             nb_of_en_cours=nb_of_en_cours,
+                             planning_existe=planning_existe)
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/ordonnancement/config', methods=['GET', 'POST'])
+    def config_ordonnancement(zone_id, projet_id):
+        """Configuration des paramètres d'ordonnancement"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        # Récupérer les OF sélectionnables (en attente ou en cours)
+        ordres_disponibles = OrdreFabrication.query.filter_by(projet_id=projet_id)\
+            .filter(OrdreFabrication.statut.in_(['en_attente', 'en_cours'])).all()
+        
+        return render_template('ordonnancement/config.html', 
+                             zone=projet.zone, 
+                             projet=projet,
+                             ordres_disponibles=ordres_disponibles)
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/ordonnancement/generer', methods=['POST'])
+    def generer_ordonnancement(zone_id, projet_id):
+        """Générer le planning d'ordonnancement avec la méthode 1"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        try:
+            # Récupérer les OF sélectionnés
+            of_ids = request.form.getlist('of_ids')
+            
+            if not of_ids:
+                flash('❌ Veuillez sélectionner au moins un OF à ordonnancer', 'danger')
+                return redirect(url_for('config_ordonnancement', zone_id=zone_id, projet_id=projet_id))
+            
+            # Convertir en entiers
+            of_ids = [int(id) for id in of_ids]
+            
+            # Récupérer les paramètres des shifts
+            operators_per_shift = {
+                1: int(request.form.get('shift1_operators', 8)),
+                2: int(request.form.get('shift2_operators', 9)),
+                3: int(request.form.get('shift3_operators', 10))
+            }
+            
+            absences_per_shift = {
+                1: int(request.form.get('shift1_absences', 0)),
+                2: int(request.form.get('shift2_absences', 0)),
+                3: int(request.form.get('shift3_absences', 0))
+            }
+            
+            params = {
+                'operators_per_shift': operators_per_shift,
+                'absences_per_shift': absences_per_shift
+            }
+            
+            # Générer le planning
+            from ordonnancement_engine import generer_planning_depuis_of
+            planning_data = generer_planning_depuis_of(projet_id, of_ids, params)
+            
+            # Sauvegarder dans la session Flask
+            from flask import session
+            session[f'planning_projet_{projet_id}'] = {
+                'assignments': planning_data['assignments'],
+                'stats': planning_data['stats'],
+                'of_details': planning_data['of_details'],
+                'params': params,
+                'date_generation': datetime.now().isoformat()
+            }
+            
+            flash(f'✅ Planning généré avec succès! {planning_data["stats"]["nb_shifts"]} shifts planifiés sur {planning_data["stats"]["duree_jours"]} jours', 'success')
+            return redirect(url_for('voir_ordonnancement', zone_id=zone_id, projet_id=projet_id))
+            
+        except Exception as e:
+            flash(f'❌ Erreur lors de la génération du planning: {str(e)}', 'danger')
+            return redirect(url_for('config_ordonnancement', zone_id=zone_id, projet_id=projet_id))
+    
+    @app.route('/zone/<int:zone_id>/projet/<int:projet_id>/ordonnancement/planning')
+    def voir_ordonnancement(zone_id, projet_id):
+        """Afficher le planning d'ordonnancement généré"""
+        projet = Projet.query.filter_by(id=projet_id, zone_id=zone_id).first_or_404()
+        
+        # Charger les résultats depuis la session
+        from flask import session
+        planning_data = session.get(f'planning_projet_{projet_id}')
+        
+        return render_template('ordonnancement/planning.html', 
+                             zone=projet.zone, 
+                             projet=projet,
+                             planning_data=planning_data)
     
     @app.route('/ordonnancement')
     def ordonnancement():

@@ -98,10 +98,11 @@
     </div>
 </div>
 
-<!-- Actions rapides -->
+<!-- Actions rapides et Projets -->
 <div class="row mb-4">
-    <div class="col-12">
-        <div class="card shadow">
+    <!-- Actions rapides -->
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow h-100">
             <div class="card-header py-3">
                 <h6 class="m-0 font-weight-bold text-primary">
                     <i class="fas fa-tools"></i> Actions Rapides
@@ -109,26 +110,56 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-6 mb-2">
                         <button class="btn btn-primary btn-user btn-block" onclick="genererOrdonnancement()">
                             <i class="fas fa-sync"></i> Générer Ordonnancement
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-6 mb-2">
                         <button class="btn btn-warning btn-user btn-block" onclick="signalerAbsence()">
                             <i class="fas fa-user-times"></i> Signaler Absence
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-6 mb-2">
                         <button class="btn btn-info btn-user btn-block" onclick="voirPlanning()">
                             <i class="fas fa-calendar"></i> Voir Planning
                         </button>
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-6 mb-2">
                         <button class="btn btn-success btn-user btn-block" onclick="exporterPlanning()">
                             <i class="fas fa-download"></i> Exporter Planning
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Projets - Ordonnancement (à droite) -->
+    <div class="col-lg-4 mb-4">
+        <div class="card shadow h-100">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-project-diagram"></i> Projets - Ordonnancement
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-0">
+                    <label for="selectProjet" class="font-weight-bold small">Sélectionner un projet:</label>
+                    <select id="selectProjet" class="form-control" onchange="naviguerVersProjet()">
+                        <option value="">-- Choisir un projet --</option>
+                        {% if zones %}
+                            {% for zone in zones %}
+                                {% if zone.projets.count() > 0 %}
+                                    <optgroup label="{{ zone.nom }}">
+                                        {% for projet in zone.projets %}
+                                            <option value="{{ zone.id }}-{{ projet.id }}">{{ projet.nom }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </select>
                 </div>
             </div>
         </div>

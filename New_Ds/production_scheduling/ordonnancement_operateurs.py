@@ -34,7 +34,7 @@ class OperatorScheduler:
 
     def add_item(self, item_code, weekly_demand, capacity_per_operator_per_shift, 
 
-                 cycle_time, efficiency=1.0, due_date_priority=None):
+                 cycle_time, efficiency=1.0, due_date=None, weight=None):
 
         """
 
@@ -54,9 +54,19 @@ class OperatorScheduler:
 
         - efficiency: Efficience moyenne (0-1)
 
-        - due_date_priority: Priorité EDD (1=Lundi, 5=Vendredi)
+        - due_date: Date d'échéance (datetime ou string 'YYYY-MM-DD')
+
+        - weight: Poids pour le tri (indicateur d'importance)
 
         """
+
+        # Convertir la date si c'est une string
+
+        if isinstance(due_date, str):
+
+            due_date = datetime.strptime(due_date, '%Y-%m-%d')
+
+        
 
         self.items_data[item_code] = {
 
@@ -68,7 +78,9 @@ class OperatorScheduler:
 
             'efficiency': efficiency,
 
-            'due_date_priority': due_date_priority if due_date_priority else 999
+            'due_date': due_date if due_date else datetime(2099, 12, 31),
+
+            'weight': weight if weight is not None else 1
 
         }
 
@@ -208,11 +220,13 @@ class OperatorScheduler:
 
     def prioritize_items(self):
 
-        """Prioriser les articles selon EDD et nombre de shifts"""
+        """Prioriser les articles avec un score combiné (EDD + Poids + Shifts)"""
 
         priority_list = []
 
         
+
+        # Collecter toutes les données
 
         for item_code in self.items_data.keys():
 
@@ -222,7 +236,9 @@ class OperatorScheduler:
 
             load_hours = self.calculate_load(item_code)
 
-            due_date_priority = item['due_date_priority']
+            due_date = item['due_date']
+
+            weight = item.get('weight', 1)
 
             
 
@@ -248,7 +264,9 @@ class OperatorScheduler:
 
                 'required_shifts_1op': required_shifts,
 
-                'due_date_priority': due_date_priority,
+                'due_date': due_date,
+
+                'weight': weight,
 
                 'capable_operators_count': len(capable_operators),
 
@@ -258,9 +276,79 @@ class OperatorScheduler:
 
         
 
-        # Trier par: 1) EDD, 2) Nombre de shifts
+        # Normaliser les valeurs et calculer le score combiné
 
-        priority_list.sort(key=lambda x: (x['due_dateè_priority'], -x['required_shifts_1op']))
+        if priority_list:
+
+            # Trouver min/max pour normalisation
+
+            min_date = min(item['due_date'] for item in priority_list)
+
+            max_date = max(item['due_date'] for item in priority_list)
+
+            date_range = (max_date - min_date).days if max_date != min_date else 1
+
+            
+
+            max_weight = max(item['weight'] for item in priority_list)
+
+            min_weight = min(item['weight'] for item in priority_list)
+
+            weight_range = max_weight - min_weight if max_weight != min_weight else 1
+
+            
+
+            max_shifts = max(item['required_shifts_1op'] for item in priority_list)
+
+            min_shifts = min(item['required_shifts_1op'] for item in priority_list)
+
+            shifts_range = max_shifts - min_shifts if max_shifts != min_shifts else 1
+
+            
+
+            # Calculer le score pour chaque article
+
+            for item in priority_list:
+
+                # Normaliser entre 0 et 1
+
+                norm_date = (item['due_date'] - min_date).days / date_range
+
+                norm_weight = (item['weight'] - min_weight) / weight_range
+
+                norm_shifts = (item['required_shifts_1op'] - min_shifts) / shifts_range
+
+                
+
+                # Poids d'importance (ajustables selon vos besoins)
+
+                W_date = 0.5    # 50% d'importance pour la date
+
+                W_weight = 0.3  # 30% d'importance pour le poids
+
+                W_shifts = 0.2  # 20% d'importance pour les shifts
+
+                
+
+                # Score combiné (plus petit = plus prioritaire)
+
+                # Pour date: plus proche = mieux (donc on garde la valeur normalisée)
+
+                # Pour weight: plus grand = mieux (donc on inverse avec 1-)
+
+                # Pour shifts: plus grand = mieux (donc on inverse avec 1-)
+
+                score = (W_date * norm_date) + (W_weight * (1 - norm_weight)) + (W_shifts * (1 - norm_shifts))
+
+                
+
+                item['priority_score'] = score
+
+            
+
+            # Trier par score (plus petit score = plus prioritaire)
+
+            priority_list.sort(key=lambda x: x['priority_score'])
 
         
 
@@ -420,7 +508,11 @@ class OperatorScheduler:
 
                                 'Quantité': qty_this_shift,
 
-                                'Priorité EDD': item['due_date_priority']
+                                'Date échéance': item['due_date'].strftime('%Y-%m-%d'),
+
+                                'Poids': item['weight'],
+
+                                'Score': round(item.get('priority_score', 0), 3)
 
                             })
 
@@ -550,7 +642,9 @@ class OperatorScheduler:
 
                 'Opérateurs nécessaires': int(operators_for_this_item),
 
-                'Priorité EDD': item['due_date_priority'],
+                'Date échéance': item['due_date'].strftime('%Y-%m-%d'),
+
+                'Poids': item['weight'],
 
                 'Opérateurs capables': ', '.join(item['capable_operators']) if item['capable_operators'] else 'Aucun'
 
@@ -730,7 +824,11 @@ class OperatorScheduler:
 
                         'Quantité': qty_this_shift,
 
-                        'Priorité EDD': item['due_date_priority']
+                        'Date échéance': item['due_date'].strftime('%Y-%m-%d'),
+
+                        'Poids': item['weight'],
+
+                        'Score': round(item.get('priority_score', 0), 3)
 
                     })
 
@@ -803,18 +901,6 @@ class OperatorScheduler:
         print(f"Nombre d'opérateurs définis: {len(self.operators)}")
 
         print("=" * 100)
-
-        
-
-        if method in ["both", "method2"]:
-
-            print("\n📊 ANALYSE DES BESOINS EN OPÉRATEURS (MÉTHODE 2):")
-
-            analysis = self.calculate_required_operators()
-
-            print(f"   Opérateurs minimum nécessaires: {analysis['min_operators_needed']}")
-
-            print(f"   Heures disponibles par opérateur/semaine: {analysis['hours_per_operator_per_week']:.1f}h")
 
 
 
@@ -918,47 +1004,47 @@ def main():
 
     print("\n📦 Ajout des articles...")
 
-    # Format: (Code, Besoin/semaine Capacité/shift, Cycle time, Efficience, Priorité EDD)
+    # Format: (Code, Besoin/semaine, Capacité/shift, Cycle time, Efficience, Date échéance, Poids)
 
     articles = [
 
-        ('M400200', 10, 2, 2.0, 1.0, 1),
+        ('M400200', 10, 2, 2.0, 1.0, '2026-03-29', 5),
 
-        ('M400201', 13, 2, 4.95, 1.0, 1),
+        ('M400201', 13, 2, 4.95, 1.0, '2026-03-29', 4),
 
-        ('M400228', 27, 3, 5.2, 1.0, 1),
+        ('M400228', 27, 3, 5.2, 1.0, '2026-03-29', 3),
 
-        ('M400229', 27, 3, 5.2, 1.0, 1),
+        ('M400229', 27, 3, 5.2, 1.0, '2026-03-29', 2),
 
-        ('M500309', 1, 20, 2.85, 1.0, 2),
+        ('M500309', 1, 20, 2.85, 1.0, '2026-03-30', 1),
 
-        ('M500325', 23, 4, 2.25, 1.0, 2),
+        ('M500325', 23, 4, 2.25, 1.0, '2026-03-30', 4),
 
-        ('M500304', 20, 6, 2.25, 1.0, 2),
+        ('M500304', 20, 6, 2.25, 1.0, '2026-03-30', 5),
 
-        ('M502026', 1, 4, 2.25, 1.0, 3),
+        ('M502026', 1, 4, 2.25, 1.0, '2026-03-31', 5),
 
-        ('M500324', 32, 10, 1.95, 1.0, 3),
+        ('M500324', 32, 10, 1.95, 1.0, '2026-03-31', 3),
 
-        ('M500319', 23, 10, 1.95, 1.0, 3),
+        ('M500319', 23, 10, 1.95, 1.0, '2026-03-31', 2),
 
-        ('M500317', 25, 5, 2.25, 1.0, 4),
+        ('M500317', 25, 5, 2.25, 1.0, '2026-04-01', 1),
 
-        ('M500329', 4, 8, 2.7, 1.0, 4),
+        ('M500329', 4, 8, 2.7, 1.0, '2026-04-01', 4),
 
-        ('M500327', 17, 4, 5.2, 1.0, 5),
+        ('M500327', 17, 4, 5.2, 1.0, '2026-04-02', 5),
 
-        ('M500311', 11, 5, 5.2, 1.0, 5),
+        ('M500311', 11, 5, 5.2, 1.0, '2026-04-02', 3),
 
-        ('M500328', 9, 4, 2.25, 1.0, 5),
+        ('M500328', 9, 4, 2.25, 1.0, '2026-04-02', 2),
 
     ]
 
     
 
-    for item_code, demand, capacity, cycle_time, efficiency, priority in articles:
+    for item_code, demand, capacity, cycle_time, efficiency, due_date, weight in articles:
 
-        scheduler.add_item(item_code, demand, capacity, cycle_time, efficiency, priority)
+        scheduler.add_item(item_code, demand, capacity, cycle_time, efficiency, due_date, weight)
 
     
 
@@ -1078,9 +1164,25 @@ def main():
 
     
 
-    # Statistiques par opérateur
+    # Statistiques par opérateur ET par shift
 
-    print("\n📊 Charge par opérateur:")
+    print("\n📊 Charge par opérateur et par shift:")
+
+    op_shift_stats = schedule_m1.groupby(['Opérateur', 'Shift']).agg({
+
+        'Quantité': 'sum',
+
+        'Jour': 'count'
+
+    }).rename(columns={'Jour': 'Nombre de shifts'})
+
+    print(op_shift_stats.to_string())
+
+    
+
+    # Statistiques globales par opérateur
+
+    print("\n📊 Charge totale par opérateur:")
 
     op_stats = schedule_m1.groupby('Opérateur').agg({
 
@@ -1212,7 +1314,9 @@ def main():
 
         schedule_m1.to_excel(writer, sheet_name='Planning', index=False)
 
-        op_stats.to_excel(writer, sheet_name='Charge par opérateur')
+        op_shift_stats.to_excel(writer, sheet_name='Charge par Op et Shift')
+
+        op_stats.to_excel(writer, sheet_name='Charge totale par Op')
 
         bilan_df.to_excel(writer, sheet_name='Bilan Objectifs', index=False)
 
@@ -1220,9 +1324,11 @@ def main():
 
     print("  - Feuille 1: Planning")
 
-    print("  - Feuille 2: Charge par opérateur")
+    print("  - Feuille 2: Charge par Opérateur et Shift")
 
-    print("  - Feuille 3: Bilan Objectifs")
+    print("  - Feuille 3: Charge totale par Opérateur")
+
+    print("  - Feuille 4: Bilan Objectifs")
 
     
 

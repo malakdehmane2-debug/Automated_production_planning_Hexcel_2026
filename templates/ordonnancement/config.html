@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}Configuration Ordonnancement - {{ projet.nom }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_zone', zone_id=zone.id) }}">{{ zone.nom }}</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('detail_projet', zone_id=zone.id, projet_id=projet.id) }}">{{ projet.nom }}</a></li>
+            <li class="breadcrumb-item active">Configuration Ordonnancement</li>
+        </ol>
+    </nav>
+
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2><i class="fas fa-cog"></i> Configuration de l'Ordonnancement</h2>
+            <p class="text-muted">Sélectionnez les OF à ordonnancer et configurez les paramètres de production</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('generer_ordonnancement', zone_id=zone.id, projet_id=projet.id) }}">
+        <div class="row">
+            <!-- Sélection des OF -->
+            <div class="col-lg-8">
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-clipboard-check"></i> Sélection des Ordres de Fabrication</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if ordres_disponibles %}
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="selectAll">
+                            <label class="form-check-label font-weight-bold" for="selectAll">
+                                Sélectionner tous les OF
+                            </label>
+                        </div>
+                        <hr>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="50">
+                                            <input type="checkbox" id="selectAllTable" class="form-check-input">
+                                        </th>
+                                        <th>N° OF</th>
+                                        <th>Produit</th>
+                                        <th>Quantité</th>
+                                        <th>Priorité EDD</th>
+                                        <th>Date Livraison</th>
+                                        <th>Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for of in ordres_disponibles %}
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" name="of_ids" value="{{ of.id }}" 
+                                                   class="form-check-input of-checkbox"
+                                                   {% if of.statut == 'en_cours' %}checked{% endif %}>
+                                        </td>
+                                        <td><strong>{{ of.numero_of }}</strong></td>
+                                        <td>
+                                            <div>{{ of.produit.reference }}</div>
+                                            <small class="text-muted">{{ of.produit.designation }}</small>
+                                        </td>
+                                        <td>
+                                            <strong>{{ of.quantite_demandee - of.quantite_produite }}</strong> restant
+                                            <br><small class="text-muted">({{ of.quantite_produite }}/{{ of.quantite_demandee }} produit)</small>
+                                        </td>
+                                        <td>
+                                            {% if of.priorite_edd == 1 %}
+                                                <span class="badge badge-danger">1 - Lundi</span>
+                                            {% elif of.priorite_edd == 2 %}
+                                                <span class="badge badge-warning">2 - Mardi</span>
+                                            {% elif of.priorite_edd == 3 %}
+                                                <span class="badge badge-info">3 - Mercredi</span>
+                                            {% elif of.priorite_edd == 4 %}
+                                                <span class="badge badge-primary">4 - Jeudi</span>
+                                            {% else %}
+                                                <span class="badge badge-secondary">5 - Vendredi</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if of.date_livraison_prevue %}
+                                                {{ of.date_livraison_prevue.strftime('%d/%m/%Y') }}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if of.statut == 'en_attente' %}
+                                                <span class="badge badge-warning">En Attente</span>
+                                            {% else %}
+                                                <span class="badge badge-info">En Cours</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>Note:</strong> Les OF en cours sont présélectionnés. 
+                            Vous pouvez les désélectionner si vous ne souhaitez pas les inclure dans l'ordonnancement.
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Aucun OF disponible pour l'ordonnancement. 
+                            <a href="{{ url_for('creer_of', zone_id=zone.id, projet_id=projet.id) }}">Créer un OF</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Paramètres Shifts -->
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-clock"></i> Configuration des Shifts</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted">Définissez le nombre d'opérateurs disponibles et les absences pour chaque shift</p>
+                        
+                        <!-- Shift 1 - Matin -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <h6 class="font-weight-bold text-primary">
+                                    <i class="fas fa-sun"></i> Shift 1 - Matin (6h-14h)
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Nombre d'opérateurs</label>
+                                <input type="number" class="form-control" name="shift1_operators" 
+                                       value="8" min="0" max="20" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Absences</label>
+                                <input type="number" class="form-control" name="shift1_absences" 
+                                       value="0" min="0" max="20">
+                            </div>
+                        </div>
+
+                        <!-- Shift 2 - Après-midi -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <h6 class="font-weight-bold text-warning">
+                                    <i class="fas fa-cloud-sun"></i> Shift 2 - Après-midi (14h-22h)
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Nombre d'opérateurs</label>
+                                <input type="number" class="form-control" name="shift2_operators" 
+                                       value="9" min="0" max="20" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Absences</label>
+                                <input type="number" class="form-control" name="shift2_absences" 
+                                       value="0" min="0" max="20">
+                            </div>
+                        </div>
+
+                        <!-- Shift 3 - Nuit -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <h6 class="font-weight-bold text-dark">
+                                    <i class="fas fa-moon"></i> Shift 3 - Nuit (22h-6h)
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Nombre d'opérateurs</label>
+                                <input type="number" class="form-control" name="shift3_operators" 
+                                       value="10" min="0" max="20" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">Absences</label>
+                                <input type="number" class="form-control" name="shift3_absences" 
+                                       value="0" min="0" max="20">
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info small mt-3 mb-0">
+                            <i class="fas fa-calculator"></i>
+                            <strong>Calcul:</strong> Opérateurs disponibles = Nombre d'opérateurs - Absences
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="card shadow">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('module_of_projet', zone_id=zone.id, projet_id=projet.id) }}" 
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Retour aux OF
+                            </a>
+                            <button type="submit" class="btn btn-success btn-lg" id="btnGenerer">
+                                <i class="fas fa-play-circle"></i> Générer le Planning
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panneau d'aide -->
+            <div class="col-lg-4">
+                <!-- Résumé -->
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Résumé</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6 class="text-muted small">OF SÉLECTIONNÉS</h6>
+                            <h3 class="mb-0" id="countSelected">0</h3>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-muted small">QUANTITÉ TOTALE</h6>
+                            <h3 class="mb-0" id="totalQuantity">0</h3>
+                        </div>
+                        <div>
+                            <h6 class="text-muted small">OPÉRATEURS TOTAUX</h6>
+                            <h3 class="mb-0" id="totalOperators">27</h3>
+                            <small class="text-muted">(8 + 9 + 10 par défaut)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Méthode d'ordonnancement -->
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-info-circle"></i> Méthode d'Ordonnancement</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="font-weight-bold">Méthode 1: Opérateurs Fixes</h6>
+                        <p class="small">
+                            Cette méthode utilise un nombre fixe d'opérateurs par shift. 
+                            Tous les opérateurs travaillent simultanément.
+                        </p>
+                        <h6 class="font-weight-bold mt-3">Algorithme de Priorisation:</h6>
+                        <ol class="small">
+                            <li><strong>Priorité EDD</strong> (Earliest Due Date)</li>
+                            <li><strong>Nombre de shifts requis</strong></li>
+                        </ol>
+                        <div class="alert alert-secondary small mb-0">
+                            <i class="fas fa-lightbulb"></i>
+                            Les OF avec priorité 1 (Lundi) seront traités en premier.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aide -->
+                <div class="card shadow">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-question-circle"></i> Aide</h5>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="font-weight-bold">Étapes:</h6>
+                        <ol class="small">
+                            <li>Sélectionnez les OF à ordonnancer</li>
+                            <li>Configurez les shifts (opérateurs et absences)</li>
+                            <li>Cliquez sur "Générer le Planning"</li>
+                            <li>Consultez les résultats et exportez en Excel</li>
+                        </ol>
+
+                        <h6 class="font-weight-bold mt-3">Paramètres Techniques:</h6>
+                        <p class="small mb-0">
+                            Si les OF n'ont pas de paramètres techniques (temps cycle, capacité), 
+                            des valeurs par défaut seront utilisées:
+                        </p>
+                        <ul class="small mb-0">
+                            <li>Temps cycle: 1.0 heure</li>
+                            <li>Capacité/opérateur: 10 unités/shift</li>
+                            <li>Efficience: 85%</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Sélectionner/Désélectionner tous
+    $('#selectAll, #selectAllTable').on('change', function() {
+        var isChecked = $(this).prop('checked');
+        $('.of-checkbox').prop('checked', isChecked);
+        updateSummary();
+    });
+
+    // Mise à jour du résumé quand on coche/décoche
+    $('.of-checkbox').on('change', function() {
+        updateSummary();
+    });
+
+    // Mise à jour du total opérateurs
+    $('input[name^="shift"]').on('input', function() {
+        updateOperatorCount();
+    });
+
+    function updateSummary() {
+        var count = $('.of-checkbox:checked').length;
+        $('#countSelected').text(count);
+        
+        // Calculer quantité totale (à implémenter si nécessaire)
+        var totalQty = 0;
+        $('.of-checkbox:checked').each(function() {
+            // Extraire la quantité de la ligne (à adapter selon votre structure)
+            totalQty += 100; // Placeholder
+        });
+        $('#totalQuantity').text(totalQty);
+    }
+
+    function updateOperatorCount() {
+        var shift1 = parseInt($('input[name="shift1_operators"]').val() || 0);
+        var shift2 = parseInt($('input[name="shift2_operators"]').val() || 0);
+        var shift3 = parseInt($('input[name="shift3_operators"]').val() || 0);
+        var abs1 = parseInt($('input[name="shift1_absences"]').val() || 0);
+        var abs2 = parseInt($('input[name="shift2_absences"]').val() || 0);
+        var abs3 = parseInt($('input[name="shift3_absences"]').val() || 0);
+        
+        var total = (shift1 - abs1) + (shift2 - abs2) + (shift3 - abs3);
+        $('#totalOperators').text(total);
+    }
+
+    // Validation avant soumission
+    $('form').on('submit', function(e) {
+        var selectedCount = $('.of-checkbox:checked').length;
+        
+        if (selectedCount === 0) {
+            e.preventDefault();
+            alert('Veuillez sélectionner au moins un OF à ordonnancer');
+            return false;
+        }
+
+        // Confirmation
+        if (!confirm(`Générer le planning pour ${selectedCount} OF sélectionné(s) ?`)) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Afficher un message de chargement
+        $('#btnGenerer').html('<i class="fas fa-spinner fa-spin"></i> Génération en cours...');
+        $('#btnGenerer').prop('disabled', true);
+    });
+
+    // Initialiser le résumé
+    updateSummary();
+    updateOperatorCount();
+});
+</script>
+{% endblock %}
